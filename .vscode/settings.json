@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "unistd.h": "c",
+        "assert.h": "c",
+        "libobjstore_access.h": "c",
+        "typeinfo": "c",
+        "queue.h": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "access.h": "c",
+        "type_traits": "cpp"
+    } ,
+    "clang-format.executable": "/usr/bin/clang-format",
+    "editor.formatOnSave": true
+
+}

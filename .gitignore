@@ -1,0 +1,8 @@
+.vscode/ipch
+data/
+*.o
+*.a
+*.txt
+objstore_client
+objstore_server
+objstore.sock
