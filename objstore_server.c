@@ -259,7 +259,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     long dataLength = strlen(data);
     int nCharDtLngth = log10(dataLength) + 1;          // Numero di char che servono per scrivere lenData
     char *dataLenAsString = MALLOC(nCharDtLngth + 1);  // stringa per contenere lenData
-    sprintf(dataLenAsString, "%ld", dataLength);
+    snprintf(dataLenAsString, nCharDtLngth + 1, "%ld", dataLength);
 
     long responseLength = strlen("DATA") + strlen(dataLenAsString) + strlen(data) + 4 + 1;
     char *response = MALLOC(responseLength);  //(char *)malloc(responseLength * sizeof(char));

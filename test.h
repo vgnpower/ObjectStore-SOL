@@ -26,7 +26,7 @@ int failedOp = 0;
 
 void test1() {
     char nameOfData[3];
-    char *data_sing = "hello";
+    char *content = "hello";
     char* data = (char*)malloc(sizeof(char) * STARTING_SIZE);
     int res;
 
@@ -35,7 +35,7 @@ void test1() {
         data = (char*)realloc(data, (sizeof(char) * dataSize));
         sprintf(nameOfData, "%d", i);
 
-        while (dataSize - strlen(data) > 0) sprintf(data + strlen(data), "%s", data_sing);
+        while (dataSize - strlen(data) > 0) sprintf(data + strlen(data), "%s", content);
 
         CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
         OP_UPDATE_COUNTER(res, failedOp, successOp, totalOp, "Test1 KO\n", "Test1 OK\n");

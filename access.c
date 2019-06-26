@@ -37,21 +37,15 @@ int os_connect(char* username) {
 }
 
 int os_store(char* fileName, void* block, size_t dtLength) {
-    char* type = "STORE";
-
     // Creazione stringa che contiene la lunghezza del dato(size_t -> string)
     long dataLength = (long)dtLength;
     int nCharDtLngth = log10(dataLength) + 1;            // Numero di char che servono per scrivere dataLength
     char* dataLenAsString = MALLOC((nCharDtLngth + 1));  // Stringa per contenere dataLength
-    sprintf(dataLenAsString, "%ld", dataLength);
+    snprintf(dataLenAsString, nCharDtLngth + 1, "%ld", dataLength);
 
-    // Creazione header
-    long messageLength = sizeof(char) * (strlen(type) + dataLength + strlen(fileName) + strlen(dataLenAsString) + 5 +
+    long messageLength = sizeof(char) * (strlen("STORE") + dataLength + strlen(fileName) + strlen(dataLenAsString) + 5 +
                                          1);  // lunghezza messaggio (4 spazi + \n + terminazione)
-    char* message = MALLOC(messageLength);    // messaggio da inviare
-
-    snprintf(message, messageLength, "%s %s %s \n %s", type, fileName, dataLenAsString,
-             (char*)block);  // creo la stringa  da inviare
+    char* message = createRequest(messageLength, "%s %s %s \n %s", "STORE", fileName, dataLenAsString, (char*)block);
     free(dataLenAsString);
 
     // Invio request
@@ -60,9 +54,7 @@ int os_store(char* fileName, void* block, size_t dtLength) {
     free(message);
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
 
-    if (equalN((char*)buffer, "OK")) return 1;
-
-    return 0;
+    return (equalN((char*)buffer, "OK")) ? 1 : 0;
 }
 
 void* os_retrieve(char* fileName) {

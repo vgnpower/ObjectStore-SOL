@@ -1,5 +1,4 @@
 BUG devo capire come fare la free del buffer se faccio crashare il server
-FEATURE gestione file temporanei
 FEATURE gestione write bufferizzata per grandi dimensioni di file!
 TODO gestione errori custom
 GESTIRE SPAZI
