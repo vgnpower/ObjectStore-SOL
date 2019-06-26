@@ -13,13 +13,11 @@
 #include <string.h>
 
 #define EOPEN "Errore apertura file"
-
 #define MAXNAMELEN 32
 
 #define CHECK_EQ(X, val, str) \
     if ((X) == val) {         \
         perror(#str);         \
-        myErrno = str;        \
     }
 
 #define SYSCALL(r, c, e)                \
@@ -102,8 +100,6 @@ static inline char* MALLOC(long size) {
     return result;
 }
 
-static char *myErrno;
-
 typedef struct objectStore {
     int n_items;
     long total_size;
@@ -113,8 +109,8 @@ t_objectStore objStore;
 
 int equal(char *str, char *cmpstr);
 int equalN(char *str, char *cmpstr);
-char *getDirPath(char *username);
-char *getFilePath(char *fileName, char *username);
+char *getDirPath(char *username, char *baseDir);
+char *getFilePath(char *fileName, char *username, char *baseDir);
 char *getFileData(char *fPath);
 int isDot(const char dir[]);
 long getFileSize(char *file);

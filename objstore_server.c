@@ -12,6 +12,9 @@
 #include "connection.h"
 #include "utils.h"
 
+#define TMPDIR ".tmp"
+#define DATADIR "data"
+
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct client {
     char *username;
@@ -187,7 +190,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
         return NULL;
     }
 
-    char *dirPath = getDirPath(client->username);
+    char *dirPath = getDirPath(client->username, DATADIR);
 
     if (mkdir(dirPath, 0777) == -1 && errno != EEXIST) {
         sendErrorMessage(client, "Path name too big");
@@ -205,43 +208,47 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " ", &savePtr);
     char *fileData = strtok_r(NULL, " \n", &savePtr);  // parte di <data> (strtok di \n per dati con spazi)
-    char *fileToWrite = getFilePath(fileName, client->username);
+    char *tmpFileToWrite = getFilePath("tmp", client->username, TMPDIR);
+    char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
     long fileLength = strtol(fileLen, NULL, 10);
     long lengthFirstRead = strlen(fileData);
-    FILE *fp1;
+    int result = -1;
 
-    CHECK_EQ(fp1 = fopen(fileToWrite, "w"), NULL, EOPEN);
-    if (fp1 == NULL) {
+    FILE *fp;
+    CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
+    if (fp == NULL) {
         sendErrorMessage(client, EOPEN);
         return client;
     }
 
     long nReadLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
-    fwrite(fileData, sizeof(char), lengthFirstRead, fp1);
+    fwrite(fileData, sizeof(char), lengthFirstRead, fp);
 
     while (nReadLeft > 0) {
         memset(buf, '\0', BUFFER_SIZE);
 
         SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
         fwrite(buf, sizeof(char),
-               (nReadLeft > 1) ? sizeof(char) * BUFFER_SIZE : sizeof(char) * ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp1);
+               (nReadLeft > 1) ? sizeof(char) * BUFFER_SIZE : sizeof(char) * ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp);
         nReadLeft--;
     }
 
-    fclose(fp1);
-    free(fileToWrite);
+    fclose(fp);
 
-    if (nReadLeft > 0)
-        sendErrorMessage(client, "Error on reading store");
-    else
+    if (nReadLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
+
+    if (result == 0)
         sendSucessMessage(client);
+    else
+        sendErrorMessage(client, "Error on write or reading store file");
 
+    FREE_ALL(tmpFileToWrite, fileToWrite);
     return client;
 }
 
 t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToRetrive = getFilePath(fileName, client->username);
+    char *fileToRetrive = getFilePath(fileName, client->username, DATADIR);
     char *data = getFileData(fileToRetrive);
 
     if (data == NULL) {
@@ -267,7 +274,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToDelete = getFilePath(fileName, client->username);
+    char *fileToDelete = getFilePath(fileName, client->username, DATADIR);
 
     // delete file
     if (remove(fileToDelete) == 0)
@@ -333,6 +340,7 @@ int main(int argc, char *argv[]) {
     unlink(SOCKNAME);
 
     if (mkdir("data", 0777) == -1 && errno != EEXIST) exit(1);
+    if (mkdir(".tmp", 0777) == -1 && errno != EEXIST) exit(1);
 
     sigManager();
 

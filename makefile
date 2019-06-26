@@ -62,7 +62,7 @@ objstore_server: objstore_server.o libUtils.a
 clean		: 
 	rm -f $(TARGETS)
 cleanall	: clean
-	\rm -R -f *.o *.a *.log data
+	\rm -R -f *.o *.a *.log data file*/
 test		:
 	> testout.log
 	bash looptest.sh

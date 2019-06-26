@@ -11,15 +11,15 @@ int equalN(char *s1, char *s2) {
     return (strncmp(s1, s2, strlen(s2)) == 0) ? 1 : 0;
 }
 
-char *getDirPath(char *username) {
-    int lenPath = sizeof(char) * (strlen("data/") + strlen(username) + 1);
+char *getDirPath(char *username, char *baseDir) {
+    int lenPath = sizeof(char) * (strlen(baseDir) + strlen(username) + 1);
     char *path = (char *)malloc(lenPath);
     snprintf(path, lenPath, "data/%s", username);
     return path;
 }
 
-char *getFilePath(char *fileName, char *username) {
-    char *dir = getDirPath(username);
+char *getFilePath(char *fileName, char *username, char *baseDir) {
+    char *dir = getDirPath(username, baseDir);
     int lenPath = sizeof(char) * (strlen(dir) + strlen(fileName) + 2);
     char *path = (char *)malloc(lenPath);
 

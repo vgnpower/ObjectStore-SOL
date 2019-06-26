@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
         scanf("%d", &choice);
         char fileName[MAXNAMELEN + 1];
         char* data;
+
         switch (choice) {
             case 1:
                 printf("Insert data name:");
