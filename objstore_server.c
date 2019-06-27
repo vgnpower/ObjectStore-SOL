@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include "connection.h"
 #include "utils.h"
-#define TMPDIR "tmp"
+#define TMPDIR ".tmp"
 #define DATADIR "data"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -190,7 +190,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
         return NULL;
     }
 
-    char *dirPath = getDirPath(client->username, "data");
+    char *dirPath = getDirPath(client->username, DATADIR);
 
     if (mkdir(dirPath, 0777) == -1 && errno != EEXIST) {
         sendErrorMessage(client, "Path name too big");
@@ -212,8 +212,9 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;  // 5 is white spaces
     long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
 
-    char *tmpFileToWrite = getFilePath(fileName, client->username, "tmp");
-    char *fileToWrite = getFilePath(fileName, client->username, "data");
+    char *tmpFileToWrite = getFilePath(fileName, "", TMPDIR);
+    char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
+
     // fprintf(stderr, "DEBUG:[%s] , [%s]", tmpFileToWrite, fileToWrite);
     long fileLength = strtol(fileLen, NULL, 10);
 
@@ -223,6 +224,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
     if (fp == NULL) {
         sendErrorMessage(client, EOPEN);
+        FREE_ALL(tmpFileToWrite, fileToWrite);
         return client;
     }
 
@@ -251,7 +253,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToRetrive = getFilePath(fileName, client->username, "data");
+    char *fileToRetrive = getFilePath(fileName, client->username, DATADIR);
     char *data = getFileData(fileToRetrive);
 
     if (data == NULL) {
@@ -277,7 +279,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToDelete = getFilePath(fileName, client->username, "data");
+    char *fileToDelete = getFilePath(fileName, client->username, DATADIR);
 
     // delete file
     if (remove(fileToDelete) == 0)
@@ -344,7 +346,7 @@ int main(int argc, char *argv[]) {
     unlink(SOCKNAME);
 
     if (mkdir("data", 0777) == -1 && errno != EEXIST) exit(1);
-    if (mkdir("tmp", 0777) == -1 && errno != EEXIST) exit(1);
+    if (mkdir(".tmp", 0777) == -1 && errno != EEXIST) exit(1);
 
     sigManager();
 

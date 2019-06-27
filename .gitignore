@@ -3,6 +3,8 @@ data/
 *.o
 *.a
 *.txt
+*.log
+.tmp/
 objstore_client
 objstore_server
 objstore.sock
