@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200112L
+//#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <locale.h>
 #include <math.h>
@@ -11,8 +12,7 @@
 #include <unistd.h>
 #include "connection.h"
 #include "utils.h"
-
-#define TMPDIR ".tmp"
+#define TMPDIR "tmp"
 #define DATADIR "data"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -114,13 +114,13 @@ t_client *addClient(t_client *client, char *username) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
-    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been connected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
-            tm.tm_min, tm.tm_sec, username);
+    /*     fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been connected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+       tm.tm_hour, tm.tm_min, tm.tm_sec, username); */
     pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
 
     if (connectedClient == NULL) {
         connectedClient = client;
-        connectedClient->username = MALLOC(strlen(username) + 1);  //(char *)malloc(sizeof(char) * strlen(name) + 1);
+        connectedClient->username = MALLOC(strlen(username) + 1);
         strcpy(connectedClient->username, username);
         n_client++;
         pthread_mutex_unlock(&mutex);
@@ -128,7 +128,7 @@ t_client *addClient(t_client *client, char *username) {
     }
 
     if (Connected(username)) {
-        fprintf(stderr, "already connected");
+        // fprintf(stderr, "already connected");
         pthread_mutex_unlock(&mutex);
         // TODO exit handler
         return client;
@@ -138,7 +138,7 @@ t_client *addClient(t_client *client, char *username) {
 
     while (curr->next != NULL) curr = curr->next;
 
-    client->username = MALLOC(strlen(username) + 1);  //(char *)malloc(sizeof(char) * (strlen(name) + 1));
+    client->username = MALLOC(strlen(username) + 1);
     strcpy(client->username, username);
     curr->next = client;
 
@@ -175,8 +175,8 @@ void removeClient(t_client *client) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
-    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been disconnected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
-            tm.tm_min, tm.tm_sec, curr->username);
+    /*     fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been disconnected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+       tm.tm_hour, tm.tm_min, tm.tm_sec, curr->username); */
     FREE_ALL(curr->username, curr);
     pthread_mutex_unlock(&mutex);
 }
@@ -190,7 +190,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
         return NULL;
     }
 
-    char *dirPath = getDirPath(client->username, DATADIR);
+    char *dirPath = getDirPath(client->username, "data");
 
     if (mkdir(dirPath, 0777) == -1 && errno != EEXIST) {
         sendErrorMessage(client, "Path name too big");
@@ -206,12 +206,17 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileLen = strtok_r(NULL, " ", &savePtr);
-    char *fileData = strtok_r(NULL, " \n", &savePtr);  // parte di <data> (strtok di \n per dati con spazi)
-    char *tmpFileToWrite = getFilePath("tmp", client->username, TMPDIR);
-    char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
+    char *fileLen = strtok_r(NULL, " \n", &savePtr);
+    strtok_r(NULL, " ", &savePtr);
+    char *fileData = savePtr;
+    long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;  // 5 is white spaces
+    long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
+
+    char *tmpFileToWrite = getFilePath(fileName, client->username, "tmp");
+    char *fileToWrite = getFilePath(fileName, client->username, "data");
+    // fprintf(stderr, "DEBUG:[%s] , [%s]", tmpFileToWrite, fileToWrite);
     long fileLength = strtol(fileLen, NULL, 10);
-    long lengthFirstRead = strlen(fileData);
+
     int result = -1;
 
     FILE *fp;
@@ -232,9 +237,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
                (nReadLeft > 1) ? sizeof(char) * BUFFER_SIZE : sizeof(char) * ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp);
         nReadLeft--;
     }
-
     fclose(fp);
-
     if (nReadLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
 
     if (result == 0)
@@ -248,7 +251,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToRetrive = getFilePath(fileName, client->username, DATADIR);
+    char *fileToRetrive = getFilePath(fileName, client->username, "data");
     char *data = getFileData(fileToRetrive);
 
     if (data == NULL) {
@@ -262,7 +265,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     snprintf(dataLenAsString, nCharDtLngth + 1, "%ld", dataLength);
 
     long responseLength = strlen("DATA") + strlen(dataLenAsString) + strlen(data) + 4 + 1;
-    char *response = MALLOC(responseLength);  //(char *)malloc(responseLength * sizeof(char));
+    char *response = MALLOC(responseLength);
     snprintf(response, responseLength, "DATA %s \n %s", dataLenAsString, data);
     int result = 0;
     SYSCALL(result, write(client->fd, response, responseLength * sizeof(char)), "error on send");
@@ -274,7 +277,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileToDelete = getFilePath(fileName, client->username, DATADIR);
+    char *fileToDelete = getFilePath(fileName, client->username, "data");
 
     // delete file
     if (remove(fileToDelete) == 0)
@@ -288,6 +291,7 @@ t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
 
 t_client *manageRequest(char *buf, t_client *client) {
     char *savePtr;
+    // fprintf(stderr, "buffer[%s]\n", buf);
     char *comand = strtok_r(buf, " ", &savePtr);
     int result;
     if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
@@ -309,7 +313,7 @@ t_client *manageRequest(char *buf, t_client *client) {
 void *threadClient(void *arg) {
     long connfd = (long)arg;
     t_client *client = initClient(connfd);
-    char *buffer = MALLOC(sizeof(char) * BUFFER_SIZE);
+    char *buffer = MALLOC(BUFFER_SIZE);
 
     do {
         memset(buffer, '\0', BUFFER_SIZE);
@@ -340,7 +344,7 @@ int main(int argc, char *argv[]) {
     unlink(SOCKNAME);
 
     if (mkdir("data", 0777) == -1 && errno != EEXIST) exit(1);
-    if (mkdir(".tmp", 0777) == -1 && errno != EEXIST) exit(1);
+    if (mkdir("tmp", 0777) == -1 && errno != EEXIST) exit(1);
 
     sigManager();
 

@@ -12,19 +12,18 @@ int equalN(char *s1, char *s2) {
 }
 
 char *getDirPath(char *username, char *baseDir) {
-    int lenPath = sizeof(char) * (strlen(baseDir) + strlen(username) + 1);
-    char *path = (char *)malloc(lenPath);
-    snprintf(path, lenPath, "data/%s", username);
+    long lenPath = (strlen(baseDir) + strlen(username) + 2);
+    char *path = MALLOC(lenPath);
+    snprintf(path, lenPath, "%s/%s", baseDir, username);
     return path;
 }
 
 char *getFilePath(char *fileName, char *username, char *baseDir) {
     char *dir = getDirPath(username, baseDir);
-    int lenPath = sizeof(char) * (strlen(dir) + strlen(fileName) + 2);
-    char *path = (char *)malloc(lenPath);
+    long lenPath = (strlen(dir) + strlen(fileName) + 2);
+    char *path = MALLOC(lenPath);
 
     snprintf(path, lenPath, "%s/%s", dir, fileName);
-
     free(dir);
     return path;
 }
@@ -108,8 +107,6 @@ char *createRequest(long messageLength, char *format, ...) {
     char *formatAlloc = MALLOC(strlen(format) + 1);
     strcpy(formatAlloc, format);
 
-    va_list argptr;
-
     char *save;
     char *token = strtok_r(formatAlloc, "%s", &save);
 
@@ -120,9 +117,19 @@ char *createRequest(long messageLength, char *format, ...) {
     free(formatAlloc);
 
     if (nOfParam < 2) return NULL;
+    /*
+long totalLenght = strlen(format) - (nOfParam * 2);
 
+va_list argptr2;
+va_start(argptr2, format);
+for (int i = 0; i < nOfParam; i++) totalLenght += strlen(va_arg(argptr2, char *));
+va_end(argptr2);
+
+fprintf(stderr, "\n [%ld] , [%ld] -> [%ld] \n", strlen(format) - (nOfParam * 2), messageLength, totalLenght);
+*/
     char *message = MALLOC(messageLength);
 
+    va_list argptr;
     va_start(argptr, format);
 
     if (vsnprintf(message, messageLength, format, argptr) == -1) {

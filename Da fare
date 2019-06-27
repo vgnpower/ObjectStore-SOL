@@ -2,8 +2,7 @@ BUG devo capire come fare la free del buffer se faccio crashare il server
 FEATURE gestione write bufferizzata per grandi dimensioni di file!
 TODO gestione errori custom
 GESTIRE SPAZI
+GESTKRE disconnessione server
 
-
-
-
-//TODO gestione messaggio KO
+BUG tokenizer_r che sta nello store del server (check on client side)
+    -> possibile fix mandare se devo separare il pacchetto in 2 un char di terminazione prima di spezzà il mex

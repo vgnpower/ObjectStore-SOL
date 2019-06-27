@@ -41,7 +41,7 @@ int os_store(char* fileName, void* block, size_t dtLength) {
     long dataLength = (long)dtLength;
     int nCharDtLngth = log10(dataLength) + 1;            // Numero di char che servono per scrivere dataLength
     char* dataLenAsString = MALLOC((nCharDtLngth + 1));  // Stringa per contenere dataLength
-    snprintf(dataLenAsString, nCharDtLngth + 1, "%ld", dataLength);
+    sprintf(dataLenAsString, "%ld", dataLength);
 
     long messageLength = sizeof(char) * (strlen("STORE") + dataLength + strlen(fileName) + strlen(dataLenAsString) + 5 +
                                          1);  // lunghezza messaggio (4 spazi + \n + terminazione)
