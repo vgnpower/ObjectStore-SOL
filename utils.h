@@ -36,6 +36,12 @@
         perror(e);                     \
         break;                          \
     }
+#define SYSCALL_RETURN(c, e, secondOp)          \
+    if ((c) != 0) {               \
+        perror(e);                     \
+        secondOp;\
+        return 0;                          \
+    }
 
 #define CHECK(r, c, e)              \
     if ((r = c) == 0) {              \

@@ -116,17 +116,8 @@ char *createRequest(long messageLength, char *format, ...) {
 
     free(formatAlloc);
 
-    if (nOfParam < 2) return NULL;
-    /*
-long totalLenght = strlen(format) - (nOfParam * 2);
+    if (nOfParam < 1) return NULL;
 
-va_list argptr2;
-va_start(argptr2, format);
-for (int i = 0; i < nOfParam; i++) totalLenght += strlen(va_arg(argptr2, char *));
-va_end(argptr2);
-
-fprintf(stderr, "\n [%ld] , [%ld] -> [%ld] \n", strlen(format) - (nOfParam * 2), messageLength, totalLenght);
-*/
     char *message = MALLOC(messageLength);
 
     va_list argptr;

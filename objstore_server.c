@@ -106,7 +106,7 @@ t_client *initClient(long fd) {
     client->next = NULL;
     client->username = NULL;
     client->fd = fd;
-    // n_client++;
+
     return client;
 }
 
@@ -114,8 +114,8 @@ t_client *addClient(t_client *client, char *username) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
-    /*     fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been connected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-       tm.tm_hour, tm.tm_min, tm.tm_sec, username); */
+    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been connected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+            tm.tm_min, tm.tm_sec, username);
     pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
 
     if (connectedClient == NULL) {
@@ -128,7 +128,7 @@ t_client *addClient(t_client *client, char *username) {
     }
 
     if (Connected(username)) {
-        // fprintf(stderr, "already connected");
+        fprintf(stderr, "already connected");
         pthread_mutex_unlock(&mutex);
         // TODO exit handler
         return client;
@@ -175,14 +175,19 @@ void removeClient(t_client *client) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
-    /*     fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been disconnected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-       tm.tm_hour, tm.tm_min, tm.tm_sec, curr->username); */
+    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been disconnected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+            tm.tm_min, tm.tm_sec, curr->username);
     FREE_ALL(curr->username, curr);
     pthread_mutex_unlock(&mutex);
 }
 
 t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
     char *user = strtok_r(NULL, " ", &savePtr);
+    if (strlen(user) > 254) {
+        sendErrorMessage(client, "Username too long. It should be less than 255");
+        return NULL;
+    }
+
     client = addClient(client, user);
 
     if (client->username == NULL) {
@@ -208,17 +213,12 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " \n", &savePtr);
     strtok_r(NULL, " ", &savePtr);
-    char *fileData = savePtr;
-    long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;  // 5 is white spaces
-    long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
-
     char *tmpFileToWrite = getFilePath(fileName, "", TMPDIR);
     char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
-
-    // fprintf(stderr, "DEBUG:[%s] , [%s]", tmpFileToWrite, fileToWrite);
+    char *fileData = savePtr;
+    long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
+    long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
     long fileLength = strtol(fileLen, NULL, 10);
-
-    int result = -1;
 
     FILE *fp;
     CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
@@ -228,19 +228,19 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
         return client;
     }
 
-    long nReadLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
+    long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
 
-    while (nReadLeft > 0) {
+    while (packetsLeft > 0) {
         memset(buf, '\0', BUFFER_SIZE);
-
         SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
-        fwrite(buf, sizeof(char),
-               (nReadLeft > 1) ? sizeof(char) * BUFFER_SIZE : sizeof(char) * ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp);
-        nReadLeft--;
+        fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp);
+        packetsLeft--;
     }
     fclose(fp);
-    if (nReadLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
+
+    int result = -1;
+    if (packetsLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
 
     if (result == 0)
         sendSucessMessage(client);
@@ -345,8 +345,8 @@ void spawnThread(long connfd) {
 int main(int argc, char *argv[]) {
     unlink(SOCKNAME);
 
-    if (mkdir("data", 0777) == -1 && errno != EEXIST) exit(1);
-    if (mkdir(".tmp", 0777) == -1 && errno != EEXIST) exit(1);
+    if (mkdir(DATADIR, 0777) == -1 && errno != EEXIST) exit(1);
+    if (mkdir(TMPDIR, 0777) == -1 && errno != EEXIST) exit(1);
 
     sigManager();
 
