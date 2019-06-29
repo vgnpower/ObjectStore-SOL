@@ -63,12 +63,10 @@ t_client *initClient(long fd) {
     return client;
 }
 
-int Connected(char *name) { return (icl_hash_find(userTables, name)) ? 1 : 0; }
-
 t_client *addClient(t_client *client, char *username) {
     pthread_mutex_lock(&mutex);
 
-    if (Connected(username)) {
+    if (icl_hash_find(userTables, username) != NULL) {
         pthread_mutex_unlock(&mutex);
         fprintf(stderr, "'%s': already connected!\n", username);
         return NULL;
@@ -84,13 +82,13 @@ t_client *addClient(t_client *client, char *username) {
         FREE_ALL(client->username, client);
     }
 
-    pthread_mutex_unlock(&mutex);  // Rilascio della LOCK
+    pthread_mutex_unlock(&mutex);
 
     return client;
 }
 
 void removeClient(t_client *client) {
-    pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
+    pthread_mutex_lock(&mutex);
 
     if (client == NULL) {
         pthread_mutex_unlock(&mutex);
@@ -99,9 +97,11 @@ void removeClient(t_client *client) {
     char *key = MALLOC(strlen(client->username) + 1);
     strcpy(key, client->username);
 
-    int success = icl_hash_delete(userTables, key, NULL, NULL);  // Errori?
-    FREE_ALL(client->username, client, key);
-    if (success == 0) n_client--;
+    int success = icl_hash_delete(userTables, key, NULL, NULL);
+    if (success == 0) {
+        n_client--;
+        FREE_ALL(client->username, client, key);
+    }
 
     pthread_mutex_unlock(&mutex);
 }
@@ -118,7 +118,7 @@ int sendErrorMessage(t_client *client, char *error) {
     int eMsgLen = strlen("KO") + strlen(error) + 3;
     char *message = createRequest(eMsgLen, "%s %s \n", "KO", error);
     int result;
-    SYSCALL(result, write(client->fd, message, eMsgLen * sizeof(char)), "errore invio");
+    SYSCALL(result, write(client->fd, message, eMsgLen * sizeof(char)), "error sending response message");
     free(message);
 
     return (result != -1) ? 1 : 0;
@@ -126,7 +126,7 @@ int sendErrorMessage(t_client *client, char *error) {
 
 int sendSucessMessage(t_client *client) {
     int result;
-    SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "errore invio");
+    SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "error sending response message");
     return (result != -1) ? 1 : 0;
 }
 
@@ -219,8 +219,8 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     char *response = MALLOC(responseLength);
     snprintf(response, responseLength, "DATA %s \n %s", dataLenAsString, data);
     int result = 0;
-    SYSCALL(result, write(client->fd, response, responseLength * sizeof(char)), "error on send");
-    if (result == -1) sendErrorMessage(client, "error on send");
+    SYSCALL(result, write(client->fd, response, responseLength * sizeof(char)), "error sending response message");
+    if (result == -1) sendErrorMessage(client, "error sending error response message");
     FREE_ALL(dataLenAsString, data, response, fileToRetrive);
 
     return client;
@@ -251,7 +251,7 @@ t_client *manageRequest(char *buf, t_client *client) {
     if (equal(comand, "RETRIEVE")) return reqRetrive(buf, client, savePtr);
     if (equal(comand, "DELETE")) return reqDelete(buf, client, savePtr);
     if (equal(comand, "LEAVE")) {
-        SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "errore invio");
+        SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "error sending response message");
         removeClient(client);
         return NULL;
     }
@@ -268,7 +268,7 @@ void *threadClient(void *arg) {
 
     do {
         memset(buffer, '\0', BUFFER_SIZE);
-        SYSCALL_BREAK(read(connfd, buffer, BUFFER_SIZE), "errore lettura thread F");
+        SYSCALL_BREAK(read(connfd, buffer, BUFFER_SIZE), "error reading");
         client = manageRequest(buffer, client);
     } while (client != NULL);
 
@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
     userTables = NULL;
     userTables = icl_hash_create(NBUCKETS, NULL, NULL);
     if (!userTables) {
-        fprintf(stderr, "Errore nella creazione della table hash\n");
+        fprintf(stderr, "Error creating HashTable\n");
         return 0;
     }
 

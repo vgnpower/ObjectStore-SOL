@@ -78,7 +78,7 @@ void countObjects(char *dirName) {
         strncat(filename, "/", 2);
         strncat(filename, file->d_name, strlen(file->d_name) + 1);
 
-        if (isDot(filename)) continue;  // TODO a che serve?
+        if (isDot(filename)) continue;
 
         int result;
         SYSCALL(result, stat(filename, &statbuf), "unable to open stat");

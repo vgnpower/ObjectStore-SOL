@@ -86,8 +86,6 @@
         return;                 \
     }
 
-#define ALLOC(t,n) (t *) malloc((n)*sizeof(t))
-
 #define FREE_ALL(...)                                   \
     void *pta[] = {__VA_ARGS__};                        \
     for(int i = 0; i < sizeof(pta) / sizeof(void*); i++)\
@@ -112,7 +110,7 @@ typedef struct objectStore {
 } t_objectStore;
 
 t_objectStore objStore;
-
+char *customError;
 int equal(char *str, char *cmpstr);
 int equalN(char *str, char *cmpstr);
 char *getDirPath(char *username, char *baseDir);

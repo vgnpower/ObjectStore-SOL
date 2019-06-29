@@ -4,6 +4,3 @@ TODO gestione errori custom
 GESTIRE SPAZI
 GESTKRE disconnessione server
 TODO controlli lunghezza username e filename 
-
-BUG tokenizer_r che sta nello store del server (check on client side)
-    -> possibile fix mandare se devo separare il pacchetto in 2 un char di terminazione prima di spezzà il mex
