@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     int res = 0;
     char* username = argv[1];
     fprintf(stdout, "\nCLIENT: %s\n\n", username);
-    CHECK_EXIT(res, os_connect(username), "Connection error");
+    CHECK_EXIT(res, os_connect(username), "Connection error (os_connect)");
 
     if (argc == 3) {
         fprintf(stdout, "CONNECTED\n\n");

@@ -56,7 +56,7 @@ libAccess.a: access.o access.h libUtils.a
 objstore_client: objstore_client.o libAccess.a  libUtils.a
 	$(CC) $(CFLAGS) $(INCLUDES) $(OPTFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-objstore_server: objstore_server.o libUtils.a
+objstore_server: objstore_server.o icl_hash.o libUtils.a
 	$(CC) $(CFLAGS) $(INCLUDES) $(OPTFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean		: 

@@ -11,18 +11,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "connection.h"
+#include "icl_hash.h"
 #include "utils.h"
 #define TMPDIR ".tmp"
 #define DATADIR "data"
+#define NBUCKETS 512
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct client {
     char *username;
     long fd;
-    struct client *next;
 } t_client;
 
-t_client *connectedClient;
+icl_hash_t *userTables;
 
 int n_client = 0;
 int n_items = 0;
@@ -53,35 +54,64 @@ void sigManager() {
     SYSCALL(notused, sigaction(SIGINT, &sa, NULL), "sigaction");
 }
 
-void freeList() {
-    pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
-    t_client *curr = connectedClient;
-    t_client *prev = NULL;
+t_client *initClient(long fd) {
+    t_client *client = (t_client *)malloc(sizeof(t_client));
+    IFNULL_EXIT(client, "Error on malloc t_client");
+    client->username = NULL;
+    client->fd = fd;
 
-    if (curr == NULL) {
+    return client;
+}
+
+int Connected(char *name) { return (icl_hash_find(userTables, name)) ? 1 : 0; }
+
+t_client *addClient(t_client *client, char *username) {
+    pthread_mutex_lock(&mutex);
+
+    if (Connected(username)) {
+        pthread_mutex_unlock(&mutex);
+        fprintf(stderr, "'%s': already connected!\n", username);
+        return NULL;
+    }
+
+    client->username = MALLOC(strlen(username) + 1);
+    strcpy(client->username, username);
+    icl_entry_t *ins_ret = icl_hash_insert(userTables, client->username, client);
+
+    if (ins_ret != NULL) {
+        n_client++;
+    } else {
+        FREE_ALL(client->username, client);
+    }
+
+    pthread_mutex_unlock(&mutex);  // Rilascio della LOCK
+
+    return client;
+}
+
+void removeClient(t_client *client) {
+    pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
+
+    if (client == NULL) {
         pthread_mutex_unlock(&mutex);
         return;
     }
+    char *key = MALLOC(strlen(client->username) + 1);
+    strcpy(key, client->username);
 
-    while (curr->next != NULL) {
-        prev = curr;
-        curr = curr->next;
-        FREE_ALL(prev->username, prev);
-    }
+    int success = icl_hash_delete(userTables, key, NULL, NULL);  // Errori?
+    FREE_ALL(client->username, client, key);
+    if (success == 0) n_client--;
 
-    FREE_ALL(curr->username, curr);
-    pthread_mutex_unlock(&mutex);  // Rilascio della LOCK
+    pthread_mutex_unlock(&mutex);
 }
 
-int Connected(char *name) {
-    t_client *curr = connectedClient;
+void freeList() {
+    pthread_mutex_lock(&mutex);
 
-    while (curr != NULL) {
-        if (equal(name, curr->username)) return 1;
-        curr = curr->next;
-    }
+    icl_hash_destroy(userTables, NULL, NULL);
 
-    return 0;
+    pthread_mutex_unlock(&mutex);
 }
 
 int sendErrorMessage(t_client *client, char *error) {
@@ -100,87 +130,6 @@ int sendSucessMessage(t_client *client) {
     return (result != -1) ? 1 : 0;
 }
 
-t_client *initClient(long fd) {
-    t_client *client = (t_client *)malloc(sizeof(t_client));
-    IFNULL_EXIT(client, "Error on malloc t_client");
-    client->next = NULL;
-    client->username = NULL;
-    client->fd = fd;
-
-    return client;
-}
-
-t_client *addClient(t_client *client, char *username) {
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-
-    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been connected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
-            tm.tm_min, tm.tm_sec, username);
-    pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
-
-    if (connectedClient == NULL) {
-        connectedClient = client;
-        connectedClient->username = MALLOC(strlen(username) + 1);
-        strcpy(connectedClient->username, username);
-        n_client++;
-        pthread_mutex_unlock(&mutex);
-        return connectedClient;
-    }
-
-    if (Connected(username)) {
-        fprintf(stderr, "already connected");
-        pthread_mutex_unlock(&mutex);
-        // TODO exit handler
-        return client;
-    }
-
-    t_client *curr = connectedClient;
-
-    while (curr->next != NULL) curr = curr->next;
-
-    client->username = MALLOC(strlen(username) + 1);
-    strcpy(client->username, username);
-    curr->next = client;
-
-    n_client++;
-    pthread_mutex_unlock(&mutex);  // Rilascio della LOCK
-
-    return client;
-}
-
-void removeClient(t_client *client) {
-    pthread_mutex_lock(&mutex);  // Acquisizione della LOCK
-
-    t_client *curr = connectedClient;
-    t_client *prev = NULL;
-
-    if (client == NULL || curr == NULL /*|| n_client == 0*/) {
-        // FREE_ALL(client->username, client);
-        pthread_mutex_unlock(&mutex);
-        return;
-    }
-
-    while (curr->next != NULL && client != curr) {
-        prev = curr;
-        curr = curr->next;
-    }
-
-    if (prev == NULL) {  // se è il primo della lista
-        connectedClient = curr->next;
-    } else {
-        prev->next = curr->next;
-    }
-
-    n_client--;
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-
-    fprintf(stderr, "[%d-%d-%d %d:%d:%d] %s has been disconnected!\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
-            tm.tm_min, tm.tm_sec, curr->username);
-    FREE_ALL(curr->username, curr);
-    pthread_mutex_unlock(&mutex);
-}
-
 t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
     char *user = strtok_r(NULL, " ", &savePtr);
     if (strlen(user) > 254) {
@@ -190,7 +139,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 
     client = addClient(client, user);
 
-    if (client->username == NULL) {
+    if (client == NULL || client->username == NULL) {
         sendErrorMessage(client, "Username already taken");
         return NULL;
     }
@@ -347,6 +296,13 @@ int main(int argc, char *argv[]) {
 
     if (mkdir(DATADIR, 0777) == -1 && errno != EEXIST) exit(1);
     if (mkdir(TMPDIR, 0777) == -1 && errno != EEXIST) exit(1);
+
+    userTables = NULL;
+    userTables = icl_hash_create(NBUCKETS, NULL, NULL);
+    if (!userTables) {
+        fprintf(stderr, "Errore nella creazione della table hash\n");
+        return 0;
+    }
 
     sigManager();
 
