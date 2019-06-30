@@ -64,6 +64,7 @@ t_client *initClient(long fd) {
 }
 
 t_client *addClient(t_client *client, char *username) {
+    printDateAndMore(username, "connected");
     pthread_mutex_lock(&mutex);
 
     if (icl_hash_find(userTables, username) != NULL) {
@@ -94,6 +95,8 @@ void removeClient(t_client *client) {
         pthread_mutex_unlock(&mutex);
         return;
     }
+    printDateAndMore(client->username, "disconnected");
+
     char *key = MALLOC(strlen(client->username) + 1);
     strcpy(key, client->username);
 
@@ -162,7 +165,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " \n", &savePtr);
     strtok_r(NULL, " ", &savePtr);
-    char *tmpFileToWrite = getFilePath(fileName, "", TMPDIR);
+    char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
     char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
     char *fileData = savePtr;
     long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
@@ -242,11 +245,10 @@ t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
 
 t_client *manageRequest(char *buf, t_client *client) {
     char *savePtr;
-    // fprintf(stderr, "buffer[%s]\n", buf);
     char *comand = strtok_r(buf, " ", &savePtr);
     int result;
-    if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
 
+    if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
     if (equal(comand, "STORE")) return reqStore(buf, client, savePtr);
     if (equal(comand, "RETRIEVE")) return reqRetrive(buf, client, savePtr);
     if (equal(comand, "DELETE")) return reqDelete(buf, client, savePtr);

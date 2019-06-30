@@ -121,4 +121,5 @@ long getFileSize(char *file);
 void countObjects(char *dirName);
 void clearObjectStruct();
 char *createRequest(long messageLength, char *format, ...);
+void printDateAndMore(char *username, char *message);
 #endif /* UTIL_H */

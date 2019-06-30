@@ -25,7 +25,7 @@ int os_connect(char* username) {
     if (equalN(buffer, "OK")) return 1;
     if (equalN(buffer, "KO")) {
         char* savePtr;
-        char* command = strtok_r(buffer, " ", &savePtr);
+        strtok_r(buffer, " ", &savePtr);
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
         return 0;
@@ -52,7 +52,7 @@ int os_store(char* fileName, void* block, size_t dtLength) {
 
     if (equalN(buffer, "KO")) {
         char* savePtr;
-        char* command = strtok_r(buffer, " ", &savePtr);
+        strtok_r(buffer, " ", &savePtr);
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
         return 0;
@@ -146,7 +146,7 @@ int os_disconnect() {
     }
     if (equal(buffer, "KO")) {
         char* savePtr;
-        char* command = strtok_r(buffer, " ", &savePtr);
+        strtok_r(buffer, " ", &savePtr);
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
     }

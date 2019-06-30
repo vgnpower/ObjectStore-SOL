@@ -1,11 +1,14 @@
 #!/bin/bash
 logFile='testout.log'
 nt1=0
-nt1Idedali=1000
 nt2=0
-nt2Idedali=30
 nt3=0
-nt3Idedali=20
+#What the output should be
+targetT1=1000
+targetT2=30
+targetT3=20
+totalClientTarget=100
+
 nclient=0
 testNumber=0
 n=1
@@ -50,11 +53,11 @@ done < $logFile
 
 echo "/------------------------------------------\\"
 echo "| Connected client: $nclient"
-echo "| Result TEST 1: PASSED: $nt1 FAILED: $((nt1Idedali-nt1))    |"
-echo "| Result TEST 2: PASSED: $nt2 FAILED: $((nt2Idedali-nt2))      |"
-echo "| Result TEST 3: PASSED: $nt3 FAILED: $((nt3Idedali-nt3))      |"
+echo "| Result TEST 1: PASSED: $nt1 FAILED: $((targetT1-nt1))    |"
+echo "| Result TEST 2: PASSED: $nt2 FAILED: $((targetT2-nt2))      |"
+echo "| Result TEST 3: PASSED: $nt3 FAILED: $((targetT3-nt3))      |"
 
-if [ $nclient == 100 ] && [ $nt1 == 1000 ] && [ $nt2 == 30 ] && [ $nt3 == 20 ] ;
+if [ $nclient == $totalClientTarget ] && [ $nt1 == $targetT1 ] && [ $nt2 == $targetT2 ] && [ $nt3 == $targetT3 ] ;
 then
     echo "| ALL TEST PASSED                          |"
 else
