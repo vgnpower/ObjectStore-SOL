@@ -26,7 +26,7 @@ int failed = 0;
 
 void test1() {
     char nameOfData[3];
-    char* content = "H llo";
+    char* content = "Hello";
     char* data = MALLOC(STARTING_SIZE);
     int res;
 
@@ -46,7 +46,7 @@ void test1() {
 
 void test2() {
     char* nameOfData = "test2";
-    char* contentToStore = "H llo";
+    char* contentToStore = "Hello";
     char* contentRetrieved;
     int res;
     CHECK(res, os_store(nameOfData, contentToStore, strlen(contentToStore)), "Error STORE");
@@ -58,7 +58,7 @@ void test2() {
 
 void test3() {
     char* nameOfData = "test3";
-    char* contentToStore = "H llo";
+    char* contentToStore = "Hello";
     int res;
     CHECK(res, os_store(nameOfData, contentToStore, strlen(contentToStore)), "Error STORE");
     CHECK(res, os_delete(nameOfData), "Error DELETE");
