@@ -85,7 +85,8 @@ void* os_retrieve(char* fileName) {
     // Data to return
     if (equal(command, "DATA")) {
         char* dataLength = strtok_r(NULL, " ", &savePtr);
-        char* fileData = strtok_r(NULL, " \n", &savePtr);
+        savePtr += 2;  // skip te next 2 char (the \n and space)
+        char* fileData = savePtr;
         long lengthFirstRead = strlen(fileData);
         long fileLength = strtol(dataLength, NULL, 10);
         long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);

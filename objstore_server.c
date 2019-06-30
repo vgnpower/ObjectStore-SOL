@@ -13,7 +13,7 @@
 #include "connection.h"
 #include "icl_hash.h"
 #include "utils.h"
-#define TMPDIR ".tmp"
+#define TMPDIR "/tmp/objStoreTmpFiles"
 #define DATADIR "data"
 #define NBUCKETS 512
 
@@ -45,13 +45,19 @@ static void sighandler(int sig) {
 
 void sigManager() {
     struct sigaction sa;
+    struct sigaction pipeHandler;
 
+    // Reset struct content
     memset(&sa, 0, sizeof(sa));
+    memset(&pipeHandler, 0, sizeof(pipeHandler));
+
     sa.sa_handler = sighandler;
+    pipeHandler.sa_handler = SIG_IGN;
 
     int notused;
     SYSCALL(notused, sigaction(SIGUSR1, &sa, NULL), "sigaction");
     SYSCALL(notused, sigaction(SIGINT, &sa, NULL), "sigaction");
+    SYSCALL(notused, sigaction(SIGPIPE, &pipeHandler, NULL), "sigaction");
 }
 
 t_client *initClient(long fd) {
@@ -109,7 +115,7 @@ void removeClient(t_client *client) {
     pthread_mutex_unlock(&mutex);
 }
 
-void freeList() {
+void freeHT() {
     pthread_mutex_lock(&mutex);
 
     icl_hash_destroy(userTables, NULL, NULL);
@@ -163,11 +169,11 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 
 t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
-    char *fileLen = strtok_r(NULL, " \n", &savePtr);
-    strtok_r(NULL, " ", &savePtr);
+    char *fileLen = strtok_r(NULL, " ", &savePtr);
+    savePtr += 2;  // skip te next 2 char (the \n and space)
+    char *fileData = savePtr;
     char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
     char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
-    char *fileData = savePtr;
     long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
     long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
     long fileLength = strtol(fileLen, NULL, 10);
@@ -221,6 +227,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     long responseLength = strlen("DATA") + strlen(dataLenAsString) + strlen(data) + 4 + 1;
     char *response = MALLOC(responseLength);
     snprintf(response, responseLength, "DATA %s \n %s", dataLenAsString, data);
+
     int result = 0;
     SYSCALL(result, write(client->fd, response, responseLength * sizeof(char)), "error sending response message");
     if (result == -1) sendErrorMessage(client, "error sending error response message");
@@ -270,6 +277,7 @@ void *threadClient(void *arg) {
 
     do {
         memset(buffer, '\0', BUFFER_SIZE);
+        if (sigInt == 1) break;
         SYSCALL_BREAK(read(connfd, buffer, BUFFER_SIZE), "error reading");
         client = manageRequest(buffer, client);
     } while (client != NULL);
@@ -323,6 +331,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1 && errno == EINTR) {
+            fprintf(stdout, "Error accepting new connection\n");
         }
 
         if (sigInt == 1) break;
@@ -340,7 +349,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    freeList();
+    for (int i = 0; i < 2; i++) {
+        if (n_client == 0) break;
+        sleep(1);
+    }
+
+    freeHT();
     unlink(SOCKNAME);
 
     return 0;

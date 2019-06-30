@@ -1,7 +1,3 @@
 BUG devo capire come fare la free del buffer se faccio crashare il server
 FEATURE gestione write bufferizzata per grandi dimensioni di file!
-TODO gestione errori custom
-GESTIRE SPAZI
-GESTKRE disconnessione server
 TODO controlli lunghezza username e filename 
-GEstire SIGPIPE

@@ -1,7 +1,23 @@
+#define _POSIX_C_SOURCE 200112L
+#include <ctype.h>
+#include <locale.h>
+#include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "test.h"
+
+void sigManager() {
+    struct sigaction pipeHandler;
+    memset(&pipeHandler, 0, sizeof(pipeHandler));
+    pipeHandler.sa_handler = SIG_IGN;
+    int notused;
+    SYSCALL(notused, sigaction(SIGPIPE, &pipeHandler, NULL), "sigaction");
+}
 
 int main(int argc, char* argv[]) {
     if (argc == 1) {
@@ -14,6 +30,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    sigManager();
     int res = 0;
     char* username = argv[1];
     fprintf(stdout, "\nCLIENT: %s\n\n", username);
@@ -26,7 +43,7 @@ int main(int argc, char* argv[]) {
         if (testToRun == 2) test2();
         if (testToRun == 3) test3();
 
-        fprintf(stdout, "\nResults:\n-> total: %d\n-> success: %d\n-> failed: %d\n\n", totalOp, successOp, failedOp);
+        fprintf(stdout, "\nResults:\n-> total: %d\n-> success: %d\n-> failed: %d\n\n", total, success, failed);
 
         CHECK(res, os_disconnect(), "Error LEAVE");
         exit(EXIT_SUCCESS);

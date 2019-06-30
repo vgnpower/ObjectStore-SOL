@@ -8,7 +8,11 @@
         "stdlib.h": "c",
         "string.h": "c",
         "access.h": "c",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "test.h": "c",
+        "pthread.h": "c",
+        "types.h": "c",
+        "utils.h": "c"
     } ,
     "clang-format.executable": "/usr/bin/clang-format",
     "editor.formatOnSave": true
