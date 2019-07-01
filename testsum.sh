@@ -6,14 +6,32 @@ function loopTest(){
     min=$2
     max=$3
     
-    echo "#######/ Start Test $testN /#######" >> $logFile;
     for i in `seq $min $max`; do
         ./objstore_client user$i $testN &>> $logFile & clientpid+="$! ";
     done;
-    echo -e "#######/ End Test $testN /####### \n" >> $logFile;
+    
     wait $clientpid
     clientpid="";
 }
+
+function loopTest2(){
+    min=$1
+    max=$2
+    
+    for i in `seq $min $max`; do
+        if [ $i -gt 30 ] ;
+        then
+            ./objstore_client user$i 3 &>> $logFile & clientpid+="$! ";
+        else
+            ./objstore_client user$i 2 &>> $logFile & clientpid+="$! ";
+        fi
+        
+    done;
+    
+    wait $clientpid
+    clientpid="";
+}
+
 
 function checkLog(){
     #What the output should be
@@ -44,8 +62,9 @@ function checkLog(){
 }
 
 loopTest 1 1 50 #Exectue test1 with range 1-50
-loopTest 2 1 30 #Exectue test2 with range 1-30
-loopTest 3 31 50 #Exectue test3 with range 31-50
+loopTest2 1 50
+#loopTest 2 1 30 #Exectue test2 with range 1-30
+#loopTest 3 31 50 #Exectue test3 with range 31-50
 checkLog #Execture that check and print the log result
 
 kill -USR1 $(pidof objstore_server)
