@@ -105,6 +105,7 @@ void clearObjectStruct() {
 
 char *createRequest(long messageLength, char *format, ...) {
     char *formatAlloc = MALLOC(strlen(format) + 1);
+
     strcpy(formatAlloc, format);
 
     char *save;
