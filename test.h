@@ -9,7 +9,7 @@
 
 #define STARTING_SIZE 100
 #define INC_SIZE 55
-#define CONTENT "HelloHelloHelloHelloHelloHelloHelloHelloHello elloHelloHelloHelloHelloHelloHelloHelloHelloHelloend!\n"
+#define CONTENT "HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloend!\n"
 
 #define OP_UPDATE_COUNTER(res, failed, success, total, msgSucc, msgFail) \
     total++;                                                             \
@@ -31,21 +31,21 @@ void test1() {
     long dataSize = 100;
     for (int i = 0; i < 20; i++) {
         if (i == 0) {
-            dataSize = 100;
+            dataSize = 101;
         } else if (i == 19) {
-            dataSize = 100000;
+            dataSize = 100001;
         } else {
-            dataSize = i * INC_SIZE * STARTING_SIZE;
+            dataSize = (i * INC_SIZE * STARTING_SIZE) + 1;
         }
-
         char* data = MALLOC(dataSize);
-        sprintf(nameOfData, "%d", i);
 
-        while (dataSize - strlen(data) > 0) sprintf(data + strlen(data), "%s", CONTENT);
+        sprintf(nameOfData, "%d", i);
+        int cx = 0;
+        while (dataSize - cx > 0) cx += snprintf(data + cx, dataSize - cx, "%s", CONTENT);
 
         CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
-        free(data);
         OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
+        free(data);
     }
 }
 

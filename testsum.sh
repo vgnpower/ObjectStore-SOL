@@ -48,4 +48,4 @@ loopTest 2 1 30 #Exectue test2 with range 1-30
 loopTest 3 31 50 #Exectue test3 with range 31-50
 checkLog #Execture that check and print the log result
 
-#kill -USR1 $(pidof objstore_server)
+kill -USR1 $(pidof objstore_server)
