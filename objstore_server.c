@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200112L
 //#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
+#include <ftw.h>
 #include <locale.h>
 #include <math.h>
 #include <pthread.h>
@@ -8,11 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "connection.h"
 #include "icl_hash.h"
 #include "utils.h"
+
 #define TMPDIR "/tmp/objStoreTmpFiles"
 #define DATADIR "data"
 #define NBUCKETS 512
@@ -30,33 +33,38 @@ int n_items = 0;
 long total_size = 0;
 
 static volatile sig_atomic_t sigInt = 0;
-static volatile sig_atomic_t sigUsr1 = 0;
 
-static void sighandler(int sig) {
-    switch (sig) {
-        case SIGINT: {
-            sigInt = 1;
-        } break;
-        case SIGUSR1: {
-            sigUsr1 = 1;
-        } break;
-    }
+static void stopServer(int sig) {
+    fprintf(stderr, "\n/!\\ THE SERVER IS SHUTTING DOWN /!\\\n");
+    sigInt = 1;
+}
+
+void printStats() {
+    clearObjectStruct();
+    countObjects("data");
+    fprintf(stdout,
+            "\n/------------Stats------------\\\n Connected cients: %d\n Total objects: %d\n Total size of objects: %ld "
+            "MB\n\\-----------------------------/\n",
+            n_client, objStore.n_items, ((objStore.total_size / 1024) / 1024));
 }
 
 void sigManager() {
-    struct sigaction sa;
+    struct sigaction exitHandler;
+    struct sigaction statsHandler;
     struct sigaction pipeHandler;
 
     // Reset struct content
-    memset(&sa, 0, sizeof(sa));
+    memset(&exitHandler, 0, sizeof(exitHandler));
+    memset(&statsHandler, 0, sizeof(statsHandler));
     memset(&pipeHandler, 0, sizeof(pipeHandler));
 
-    sa.sa_handler = sighandler;
+    exitHandler.sa_handler = stopServer;
     pipeHandler.sa_handler = SIG_IGN;
+    statsHandler.sa_handler = printStats;
 
     int notused;
-    SYSCALL(notused, sigaction(SIGUSR1, &sa, NULL), "sigaction");
-    SYSCALL(notused, sigaction(SIGINT, &sa, NULL), "sigaction");
+    SYSCALL(notused, sigaction(SIGUSR1, &statsHandler, NULL), "sigaction");
+    SYSCALL(notused, sigaction(SIGINT, &exitHandler, NULL), "sigaction");
     SYSCALL(notused, sigaction(SIGPIPE, &pipeHandler, NULL), "sigaction");
 }
 
@@ -274,6 +282,11 @@ void *threadClient(void *arg) {
     long connfd = (long)arg;
     t_client *client = initClient(connfd);
     char *buffer = MALLOC(BUFFER_SIZE);
+    struct timeval tv = {0, 1000};
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(connfd, &set);
+    int sel_ret = select(connfd, &set, NULL, NULL, &tv);
 
     do {
         memset(buffer, '\0', BUFFER_SIZE);
@@ -329,25 +342,8 @@ int main(int argc, char *argv[]) {
     SYSCALL_QUIT(notused, listen(listenfd, MAXBACKLOG), "listen");
     int connfd = -1;
 
-    while (1) {
-        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1 && errno == EINTR) {
-            fprintf(stdout, "Error accepting new connection\n");
-        }
-
-        if (sigInt == 1) break;
-
-        if (sigUsr1 == 0)
-            spawnThread(connfd);
-        else {
-            clearObjectStruct();
-            countObjects("data");
-            fprintf(stdout,
-                    "\n/------------Stats------------\\\nConnected cients: %d\nTotal objects: %d\nTotal size of objects: %ld "
-                    "MB\n\\-----------------------------/\n",
-                    n_client, objStore.n_items, ((objStore.total_size / 1024) / 1024));
-            sigUsr1 = 0;
-        }
-    }
+    while (sigInt != 1)
+        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) != -1 && errno != EINTR) spawnThread(connfd);
 
     for (int i = 0; i < 2; i++) {
         if (n_client == 0) break;

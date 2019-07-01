@@ -61,9 +61,11 @@ objstore_server: objstore_server.o icl_hash.o libUtils.a
 
 clean		: 
 	rm -f $(TARGETS)
-cleanall	: clean
-	\rm -R -f *.o *.a *.log data .tmp
+cleanall	: clean cleandata
+	\rm -R -f *.o *.a *.log
+	
+cleandata	: 
+	rm -R -f data /tmp/objStoreTmpFiles 
 test		:
 	> testout.log
-	bash looptest.sh
 	bash testsum.sh

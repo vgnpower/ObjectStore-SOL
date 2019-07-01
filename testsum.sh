@@ -1,70 +1,51 @@
 #!/bin/bash
 logFile='testout.log'
-nt1=0
-nt2=0
-nt3=0
-#What the output should be
-targetT1=1000
-targetT2=30
-targetT3=20
-totalClientTarget=100
 
-nclient=0
-testNumber=0
-n=1
+function loopTest(){
+    testN=$1
+    min=$2
+    max=$3
+    
+    echo "#######/ Start Test $testN /#######" >> $logFile;
+    for i in `seq $min $max`; do
+        ./objstore_client user$i $testN &>> $logFile & clientpid+="$! ";
+    done;
+    echo -e "#######/ End Test $testN /####### \n" >> $logFile;
+    wait $clientpid
+    clientpid="";
+}
 
-while read line; do
-    if [ -n "$line" ];
-    then
-        if [ "$line" == "#######/ Start Test 1 /#######" ] ;
-        then    testNumber=1
-        fi
-        
-        if [ "$line" == "#######/ Start Test 2 /#######" ] ;
-        then    testNumber=2
-        fi
-        
-        if [ "$line" == "#######/ Start Test 3 /#######" ] ;
-        then     testNumber=3
-        fi
-        
-        case "$testNumber" in
-            1)  if [ "$line" == "Test1 OK" ]; then
-                    nt1=$((nt1+1))
-                fi
-            ;;
-            2) if [ "$line" == "Test2 OK" ]; then
-                    nt2=$((nt2+1))
-                fi
-            ;;
-            3) if [ "$line" == "Test3 OK" ]; then
-                    nt3=$((nt3+1))
-                fi
-            ;;
-        esac
-        
-        if [ "$line" == "CONNECTED" ] ;
-        then nclient=$((nclient+1))
-        fi
+function checkLog(){
+    #What the output should be
+    targetT1=1000
+    targetT2=30
+    targetT3=20
+    totalClientTarget=100
+    
+    nclient=0
+    #Counting special words that defines the end of a specifc action
+    tst1=$(grep -c "Test1 OK" $logFile)
+    tst2=$(grep -c "Test2 OK" $logFile)
+    tst3=$(grep -c "Test3 OK" $logFile)
+    nclient=$(grep -c "CONNECTED" $logFile)
+    
+    echo "/------------------------------------------\\"
+    echo "| Connected client: $nclient"
+    echo "| Result TEST 1: PASSED: $tst1 FAILED: $((targetT1-tst1))    |"
+    echo "| Result TEST 2: PASSED: $tst2 FAILED: $((targetT2-tst2))      |"
+    echo "| Result TEST 3: PASSED: $tst3 FAILED: $((targetT3-tst3))      |"
+    
+    if [ $nclient == $totalClientTarget ] && [ $tst1 == $targetT1 ] && [ $tst2 == $targetT2 ] && [ $tst3 == $targetT3 ] ;
+    then echo "| ALL TEST PASSED                          |"
+    else echo "| SOME TEST FAILED                          |"
     fi
     
-    n=$((n+1))
-done < $logFile
+    echo "\------------------------------------------/"
+}
 
-echo "/------------------------------------------\\"
-echo "| Connected client: $nclient"
-echo "| Result TEST 1: PASSED: $nt1 FAILED: $((targetT1-nt1))    |"
-echo "| Result TEST 2: PASSED: $nt2 FAILED: $((targetT2-nt2))      |"
-echo "| Result TEST 3: PASSED: $nt3 FAILED: $((targetT3-nt3))      |"
+loopTest 1 1 50 #Exectue test1 with range 1-50
+loopTest 2 1 30 #Exectue test2 with range 1-30
+loopTest 3 31 50 #Exectue test3 with range 31-50
+checkLog #Execture that check and print the log result
 
-if [ $nclient == $totalClientTarget ] && [ $nt1 == $targetT1 ] && [ $nt2 == $targetT2 ] && [ $nt3 == $targetT3 ] ;
-then
-    echo "| ALL TEST PASSED                          |"
-else
-    echo "| SOME TEST FAILED                          |"
-fi
-
-echo "\------------------------------------------/"
-
-BPID="$(pidof objstore_server)"
-kill -USR1 $BPID
+#kill -USR1 $(pidof objstore_server)

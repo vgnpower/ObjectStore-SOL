@@ -12,7 +12,8 @@
         "test.h": "c",
         "pthread.h": "c",
         "types.h": "c",
-        "utils.h": "c"
+        "utils.h": "c",
+        "stdint.h": "c"
     } ,
     "clang-format.executable": "/usr/bin/clang-format",
     "editor.formatOnSave": true
