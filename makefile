@@ -29,7 +29,9 @@ CFLAGS	    += -std=c99 -Wall
 ARFLAGS     =  rvs
 INCLUDES	= -I.
 LDFLAGS 	= -L.
-OPTFLAGS	= -g -O3 
+ASAN		= -fsanitize=address -fno-omit-frame-pointer
+MSAN 		= -fsanitize=memory -fPIE -pie -fno-omit-frame-pointer
+OPTFLAGS	= -g -O3
 LIBS        = -pthread -lm
 
 # aggiungere qui altri targets
@@ -66,6 +68,6 @@ cleanall	: clean cleandata
 	
 cleandata	: 
 	rm -R -f data /tmp/objStoreTmpFiles 
-test		:
-	> testout.log
+test		: cleandata
+	@./objstore_server &
 	bash testsum.sh

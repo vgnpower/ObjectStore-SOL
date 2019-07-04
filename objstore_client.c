@@ -30,21 +30,23 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    sigManager();
+    // sigManager();
     int res = 0;
     char* username = argv[1];
-    fprintf(stdout, "\nCLIENT: %s\n\n", username);
+
+    // TODO timer che tests X volte
     CHECK_EXIT(res, os_connect(username), "Connection error (os_connect)");
 
     if (argc == 3) {
-        fprintf(stdout, "CONNECTED\n\n");
         long testToRun = strtol(argv[2], NULL, 10);
+        fprintf(stdout, "\n Test n.%ld [%s] INIT\n\n", testToRun, username);
+        fprintf(stdout, "CONNECTED\n\n");
         if (testToRun == 1) test1();
         if (testToRun == 2) test2();
         if (testToRun == 3) test3();
 
-        fprintf(stdout, "\nResults:\n-> total: %d\n-> success: %d\n-> failed: %d\n\n", total, success, failed);
-
+        // fprintf(stdout, "\nResults:\n-> total: %d\n-> success: %d\n-> failed: %d\n\n", total, success, failed);
+        fprintf(stdout, "\n Test n.%ld [%s] DISCONNESSO: \n", testToRun, username);
         CHECK(res, os_disconnect(), "Error LEAVE");
         exit(EXIT_SUCCESS);
     }

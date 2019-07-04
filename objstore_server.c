@@ -35,8 +35,14 @@ long total_size = 0;
 static volatile sig_atomic_t sigInt = 0;
 
 static void stopServer(int sig) {
-    fprintf(stderr, "\n/!\\ THE SERVER IS SHUTTING DOWN /!\\\n");
     sigInt = 1;
+    fprintf(stderr, "\n/!\\ THE SERVER IS SHUTTING DOWN /!\\\n");
+    FILE *fp;
+    CHECK_EQ(fp = fopen("a.out", "w"), NULL, EOPEN);
+
+    if (fp != NULL) icl_hash_dump(fp, userTables);
+
+    fclose(fp);
 }
 
 void printStats() {
@@ -46,6 +52,14 @@ void printStats() {
             "\n/------------Stats------------\\\n Connected cients: %d\n Total objects: %d\n Total size of objects: %ld "
             "MB\n\\-----------------------------/\n",
             n_client, objStore.n_items, ((objStore.total_size / 1024) / 1024));
+}
+
+static void sighandler(int sig) {
+    switch (sig) {
+        case SIGINT: {
+            sigInt = 1;
+        } break;
+    }
 }
 
 void sigManager() {
@@ -58,8 +72,8 @@ void sigManager() {
     memset(&statsHandler, 0, sizeof(statsHandler));
     memset(&pipeHandler, 0, sizeof(pipeHandler));
 
-    exitHandler.sa_handler = stopServer;
-    pipeHandler.sa_handler = SIG_IGN;
+    exitHandler.sa_handler = sighandler;
+    // pipeHandler.sa_handler = SIG_IGN;
     statsHandler.sa_handler = printStats;
 
     int notused;
@@ -84,7 +98,7 @@ t_client *addClient(t_client *client, char *username) {
     if (icl_hash_find(userTables, username) != NULL) {
         pthread_mutex_unlock(&mutex);
         fprintf(stderr, "'%s': already connected!\n", username);
-        return NULL;
+        return client;
     }
 
     client->username = MALLOC(strlen(username) + 1);
@@ -94,12 +108,19 @@ t_client *addClient(t_client *client, char *username) {
     if (ins_ret != NULL) {
         n_client++;
     } else {
-        FREE_ALL(client->username, client);
+        FREE_ALL(client->username);
+        client->username = NULL;
     }
 
     pthread_mutex_unlock(&mutex);
 
     return client;
+}
+
+void clean(void *item) {
+    t_client *tmp = (t_client *)item;
+    free(tmp->username);
+    free(tmp);
 }
 
 void removeClient(t_client *client) {
@@ -109,15 +130,19 @@ void removeClient(t_client *client) {
         pthread_mutex_unlock(&mutex);
         return;
     }
+    if (client->username == NULL) {
+        free(client);
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
     printDateAndMore(client->username, "disconnected");
 
-    char *key = MALLOC(strlen(client->username) + 1);
-    strcpy(key, client->username);
-
-    int success = icl_hash_delete(userTables, key, NULL, NULL);
+    int success = icl_hash_delete(userTables, client->username, free, free);
     if (success == 0) {
         n_client--;
-        FREE_ALL(client->username, client, key);
+        // FREE_ALL(client /*, key*/);
+    } else {
+        // free(key);
     }
 
     pthread_mutex_unlock(&mutex);
@@ -126,7 +151,7 @@ void removeClient(t_client *client) {
 void freeHT() {
     pthread_mutex_lock(&mutex);
 
-    icl_hash_destroy(userTables, NULL, NULL);
+    icl_hash_destroy(userTables, NULL, clean);
 
     pthread_mutex_unlock(&mutex);
 }
@@ -156,8 +181,8 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 
     client = addClient(client, user);
 
-    if (client == NULL || client->username == NULL) {
-        sendErrorMessage(client, "Username already taken");
+    if (client->username == NULL) {
+        if (client->fd >= 0) sendErrorMessage(client, "Username already taken");
         return NULL;
     }
 
@@ -166,7 +191,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
     if (mkdir(dirPath, 0777) == -1 && errno != EEXIST) {
         sendErrorMessage(client, "Path name too big");
         free(dirPath);
-        return NULL;
+        return client;
     }
 
     free(dirPath);
@@ -206,6 +231,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     fclose(fp);
 
     int result = -1;
+
     if (packetsLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
 
     if (result == 0)
@@ -262,13 +288,12 @@ t_client *manageRequest(char *buf, t_client *client) {
     char *savePtr;
     char *comand = strtok_r(buf, " ", &savePtr);
     int result;
-
     if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
     if (equal(comand, "STORE")) return reqStore(buf, client, savePtr);
     if (equal(comand, "RETRIEVE")) return reqRetrive(buf, client, savePtr);
     if (equal(comand, "DELETE")) return reqDelete(buf, client, savePtr);
     if (equal(comand, "LEAVE")) {
-        SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "error sending response message");
+        sendSucessMessage(client);
         removeClient(client);
         return NULL;
     }
@@ -282,23 +307,20 @@ void *threadClient(void *arg) {
     long connfd = (long)arg;
     t_client *client = initClient(connfd);
     char *buffer = MALLOC(BUFFER_SIZE);
-    struct timeval tv = {0, 1000};
-    fd_set set;
-    FD_ZERO(&set);
-    FD_SET(connfd, &set);
-    int sel_ret = select(connfd, &set, NULL, NULL, &tv);
 
     do {
         memset(buffer, '\0', BUFFER_SIZE);
         if (sigInt == 1) break;
-        SYSCALL_BREAK(read(connfd, buffer, BUFFER_SIZE), "error reading");
+        SYSCALL_BREAK(read(client->fd, buffer, BUFFER_SIZE), "Error reading (thClient)");
         client = manageRequest(buffer, client);
+        if (client != NULL && client->fd == 0) break;
+
     } while (client != NULL);
 
     free(buffer);
     removeClient(client);
     close(connfd);
-
+    // shutdown(connfd, SHUT_RDWR);
     pthread_exit("Thread closed");
 
     return NULL;
@@ -342,14 +364,12 @@ int main(int argc, char *argv[]) {
     SYSCALL_QUIT(notused, listen(listenfd, MAXBACKLOG), "listen");
     int connfd = -1;
 
-    while (sigInt != 1)
-        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) != -1 && errno != EINTR) spawnThread(connfd);
-
-    for (int i = 0; i < 2; i++) {
-        if (n_client == 0) break;
-        sleep(1);
+    while (sigInt != 1) {
+        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1 && errno == EINTR) {
+        }
+        if (sigInt == 1) break;
+        spawnThread(connfd);
     }
-
     freeHT();
     unlink(SOCKNAME);
 

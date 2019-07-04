@@ -17,10 +17,17 @@ int os_connect(char* username) {
     char* message = createRequest(lenMex, "%s %s \n", "REGISTER", username);
 
     // Send request
-    SYSCALL(notused, write(sockfd, message, lenMex), "write");
+    SYSCALL(notused, write(sockfd, message, lenMex), "write (os_connect)");
     free(message);
-
-    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
+    if (notused == -1) {
+        close(sockfd);
+        return 0;
+    }
+    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_connect)");
+    if (notused == -1) {
+        close(sockfd);
+        return 0;
+    }
 
     if (equalN(buffer, "OK")) return 1;
     if (equalN(buffer, "KO")) {
@@ -28,10 +35,10 @@ int os_connect(char* username) {
         strtok_r(buffer, " ", &savePtr);
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
+        close(sockfd);
         return 0;
     }
     close(sockfd);
-
     return 0;
 }
 
@@ -46,15 +53,18 @@ int os_store(char* fileName, void* block, size_t dtLength) {
 
     // Send Req
     int notused;
-    SYSCALL(notused, write(sockfd, message, messageLength), "write");
+    SYSCALL(notused, write(sockfd, message, messageLength), "write (store)");
     free(message);
-    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
+    if (notused == -1) return 0;
+    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_store)");
+    if (notused == -1) return 0;
 
     if (equalN(buffer, "KO")) {
         char* savePtr;
         strtok_r(buffer, " ", &savePtr);
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
+        fprintf(stderr, "%s\n", customError);
         return 0;
     }
     return (equalN(buffer, "OK")) ? 1 : 0;
@@ -66,12 +76,12 @@ void* os_retrieve(char* fileName) {
 
     // Send request
     int notused;
-    SYSCALL(notused, write(sockfd, message, messageLength * sizeof(char)), "write");
+    SYSCALL(notused, write(sockfd, message, messageLength * sizeof(char)), "write (os_retrive)");
     free(message);
-
+    if (notused == -1) return 0;
     // Waiting response
-    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
-
+    SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_retrive)");
+    if (notused == -1) return 0;
     char* savePtr;
     char* command = strtok_r(buffer, " ", &savePtr);
 
@@ -97,7 +107,12 @@ void* os_retrieve(char* fileName) {
             memset(buffer, '\0', BUFFER_SIZE);
 
             int result;
-            SYSCALL(result, read(sockfd, buffer, BUFFER_SIZE), "error on reading");
+            SYSCALL(result, read(sockfd, buffer, BUFFER_SIZE), "error on reading (os_retrive");
+            if (notused == -1) {
+                free(data);
+                return NULL;
+            }
+            // TODO add controllo result
             pointerLastWrite += snprintf(data + pointerLastWrite, fileLength - pointerLastWrite, "%s", fileData);
             packetsLeft--;
         }
@@ -116,9 +131,9 @@ int os_delete(char* fileName) {
     int notused;
     SYSCALL(notused, write(sockfd, message, messageLength * sizeof(char)), "write");
     free(message);
-
+    if (notused == -1) return 0;
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
-
+    if (notused == -1) return 0;
     char* savePtr;
     char* command = strtok_r(buffer, " ", &savePtr);
 
@@ -139,8 +154,10 @@ int os_disconnect() {
     int notused;
     SYSCALL(notused, write(sockfd, message, strlen(message) * sizeof(char)), "write");
     free(message);
-
+    if (notused == -1) return 0;
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
+    if (notused == -1) return 0;
+
     if (equalN(buffer, "OK")) {
         close(sockfd);
         return 1;
