@@ -13,7 +13,7 @@ int os_connect(char* username) {
     int notused;
     SYSCALL_RETURN(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)), "connect", close(sockfd));
     // Create req
-    int lenMex = sizeof(char) * (strlen(username) + strlen("REGISTER") + 3);
+    int lenMex = sizeof(char) * (strlen(username) + strlen("REGISTER") + 4);
     char* message = createRequest(lenMex, "%s %s \n", "REGISTER", username);
 
     // Send request
@@ -71,7 +71,7 @@ int os_store(char* fileName, void* block, size_t dtLength) {
 }
 
 void* os_retrieve(char* fileName) {
-    long messageLength = sizeof(char) * (strlen("RETRIEVE") + strlen(fileName) + 3);
+    long messageLength = sizeof(char) * (strlen("RETRIEVE") + strlen(fileName) + 4);
     char* message = createRequest(messageLength, "%s %s \n", "RETRIEVE", fileName);
 
     // Send request
@@ -124,7 +124,7 @@ void* os_retrieve(char* fileName) {
 }
 
 int os_delete(char* fileName) {
-    long messageLength = sizeof(char) * (strlen("DELETE") + strlen(fileName) + 3);
+    long messageLength = sizeof(char) * (strlen("DELETE") + strlen(fileName) + 4);
     char* message = createRequest(messageLength, "%s %s \n", "DELETE", fileName);
 
     // send request

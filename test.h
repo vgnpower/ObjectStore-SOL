@@ -27,32 +27,25 @@ int failed = 0;
 
 void test1() {
     char nameOfData[3];
-    char* data = (char*)malloc(sizeof(char) * STARTING_SIZE);
-    int res, i = 0;
-    long dataSize = 100;
+    int res;
+    long dataSize = 0;
     for (int i = 0; i < 20; i++) {
-        if (i == 0) {
-            dataSize = 101;
-        } else if (i == 19) {
-            dataSize = 100001;
-        } else {
-            dataSize = (i * INC_SIZE * STARTING_SIZE) + 1;
-        }
-        long current_size = ((i + 1) / 2 * 10000) + 1;
-        if (i == 0) current_size = STARTING_SIZE + 1;
-        data = (char*)realloc(data, (sizeof(char) * current_size));
+        dataSize = STARTING_SIZE + (i * INC_SIZE) + 1;
+        if (i == 0) dataSize = STARTING_SIZE + 1;
+        if (i == 19) dataSize = 100001;
+
+        char* data = MALLOC(dataSize);
 
         sprintf(nameOfData, "%d", i);
         int cx = 0;
-        while (current_size - cx > 0) {
-            cx += snprintf(data + cx, current_size - cx, "%s", CONTENT);
+        while (dataSize - cx > 0) {
+            cx += snprintf(data + cx, dataSize - cx, "%s", CONTENT);
         }
         CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
-
+        free(data);
+        data = NULL;
         OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
     }
-
-    free(data);
 }
 
 void test2() {

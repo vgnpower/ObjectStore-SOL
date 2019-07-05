@@ -54,14 +54,6 @@ void printStats() {
             n_client, objStore.n_items, ((objStore.total_size / 1024) / 1024));
 }
 
-static void sighandler(int sig) {
-    switch (sig) {
-        case SIGINT: {
-            sigInt = 1;
-        } break;
-    }
-}
-
 void sigManager() {
     struct sigaction exitHandler;
     struct sigaction statsHandler;
@@ -72,7 +64,7 @@ void sigManager() {
     memset(&statsHandler, 0, sizeof(statsHandler));
     memset(&pipeHandler, 0, sizeof(pipeHandler));
 
-    exitHandler.sa_handler = sighandler;
+    exitHandler.sa_handler = stopServer;
     // pipeHandler.sa_handler = SIG_IGN;
     statsHandler.sa_handler = printStats;
 
@@ -221,15 +213,14 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
 
     long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
-
     while (packetsLeft > 0) {
         memset(buf, '\0', BUFFER_SIZE);
         SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
-        fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : ((fileLength - lengthFirstRead) % BUFFER_SIZE), fp);
+        fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : strlen(buf), fp);
         packetsLeft--;
     }
     fclose(fp);
-
+    memset(buf, '\0', BUFFER_SIZE);
     int result = -1;
 
     if (packetsLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
@@ -287,6 +278,7 @@ t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
 t_client *manageRequest(char *buf, t_client *client) {
     char *savePtr;
     char *comand = strtok_r(buf, " ", &savePtr);
+    fprintf(stderr, "[%s]\n", buf);
     int result;
     if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
     if (equal(comand, "STORE")) return reqStore(buf, client, savePtr);

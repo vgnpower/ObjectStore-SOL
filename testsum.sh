@@ -50,7 +50,7 @@ function checkLog(){
 
 echo -ne "waiting for the server to properly start up"
 for i in `seq 1 3`; do
-    sleep 0.1
+    sleep 0.2
     echo -ne "."
 done;
 echo -e "\n"
@@ -58,6 +58,6 @@ echo -e "\n"
 loopTest 1 1 50 #Exectue test1 with range 1-50
 checkLog #Execture check of logFile and print the result
 
-kill -USR1 $(pidof objstore_server)
+kill -USR1 $(pidof $serverName)
 wait
-kill -SIGINT $(pidof objstore_server)
+kill -SIGINT $(pidof $serverName)

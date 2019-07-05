@@ -33,21 +33,45 @@ int main(int argc, char* argv[]) {
     // sigManager();
     int res = 0;
     char* username = argv[1];
-
+    int connAttempLeft = 5;
     // TODO timer che tests X volte
-    CHECK_EXIT(res, os_connect(username), "Connection error (os_connect)");
+
+    int len = strlen("Connection error (os_connect) ") + strlen(username) + 1;
+    char* erroConnect = MALLOC(len);
+    snprintf(erroConnect, len, "Connection error (os_connect) %s", username);
+    CHECK(res, os_connect(username), erroConnect);
+
+    if (res == 0) {
+        do {
+            connAttempLeft--;
+            // if (connAttempLeft < 4) fprintf(stdout, "RECONNECT ATTEMP: Test n.%d [%s] INIT\n", connAttempLeft, username);
+
+            sleep(0.2);
+            CHECK(res, os_connect(username), erroConnect);
+        } while (connAttempLeft > 0 && res == 0);
+    }
+
+    free(erroConnect);
 
     if (argc == 3) {
         long testToRun = strtol(argv[2], NULL, 10);
-        fprintf(stdout, "\n Test n.%ld [%s] INIT\n\n", testToRun, username);
-        fprintf(stdout, "CONNECTED\n\n");
+        if (res == 0) {
+            fprintf(stdout, "Test n.%ld [%s] FAILED \n\n", testToRun, username);
+            return 0;
+        }
+        fprintf(stdout, "Test n.%ld [%s] INIT\n", testToRun, username);
+        fprintf(stdout, "CONNECTED\n");
         if (testToRun == 1) test1();
         if (testToRun == 2) test2();
         if (testToRun == 3) test3();
 
-        // fprintf(stdout, "\nResults:\n-> total: %d\n-> success: %d\n-> failed: %d\n\n", total, success, failed);
-        fprintf(stdout, "\n Test n.%ld [%s] DISCONNESSO: \n", testToRun, username);
         CHECK(res, os_disconnect(), "Error LEAVE");
+        if (res == 0) {
+            fprintf(stdout, "Error LEAVE: %s\n", username);
+        } else {
+            fprintf(stdout, "Test n.%ld [%s] DISCONNESSO: \n", testToRun, username);
+        }
+        fprintf(stdout, "\n\n");
         exit(EXIT_SUCCESS);
     }
 
