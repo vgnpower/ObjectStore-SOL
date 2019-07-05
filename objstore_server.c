@@ -193,44 +193,69 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 }
 
 t_client *reqStore(char *buf, t_client *client, char *savePtr) {
+    /*     char *fileName = strtok_r(NULL, " ", &savePtr);
+        char *fileLen = strtok_r(NULL, " ", &savePtr);
+        savePtr += 2;  // skip te next 2 char (the \n and space)
+        char *fileData = savePtr;
+        char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
+        char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
+        long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
+        long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
+        long fileLength = strtol(fileLen, NULL, 10);
+
+        FILE *fp;
+        CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
+        if (fp == NULL) {
+            sendErrorMessage(client, EOPEN);
+            FREE_ALL(tmpFileToWrite, fileToWrite);
+            return client;
+        }
+
+        long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
+        fwrite(fileData, sizeof(char), lengthFirstRead, fp);
+        while (packetsLeft > 0) {
+            memset(buf, '\0', BUFFER_SIZE);
+            SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
+            fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : strlen(buf), fp);
+            packetsLeft--;
+        }
+        fclose(fp); */
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " ", &savePtr);
     savePtr += 2;  // skip te next 2 char (the \n and space)
     char *fileData = savePtr;
     char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
     char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
+    long fileLength = strtol(fileLen, NULL, 10);
     long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
     long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
-    long fileLength = strtol(fileLen, NULL, 10);
 
     FILE *fp;
-    CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
-    if (fp == NULL) {
-        sendErrorMessage(client, EOPEN);
-        FREE_ALL(tmpFileToWrite, fileToWrite);
+
+    // writing on file
+    if ((fp = fopen(tmpFileToWrite, "w")) == NULL) {
+        fclose(fp);
+        sendErrorMessage(client, "error on fopen");
+        free(tmpFileToWrite);
         return client;
     }
-
-    long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
+    int result;
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
-    while (packetsLeft > 0) {
+    while (fileLength - lengthFirstRead > 0) {
         memset(buf, '\0', BUFFER_SIZE);
-        SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
-        fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : strlen(buf), fp);
-        packetsLeft--;
+        SYSCALL(result, read(client->fd, buf, BUFFER_SIZE), "error on read");
+        int n = fwrite(buf, sizeof(char), strnlen(buf, BUFFER_SIZE), fp);
+        fileLength -= (long)n;
     }
     fclose(fp);
-    memset(buf, '\0', BUFFER_SIZE);
-    int result = -1;
-
-    if (packetsLeft <= 0) SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
-
-    if (result == 0)
+    if (result != -1) {
+        SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
         sendSucessMessage(client);
-    else
+    } else {
         sendErrorMessage(client, "Error on write or reading store file");
-
+    }
     FREE_ALL(tmpFileToWrite, fileToWrite);
+
     return client;
 }
 

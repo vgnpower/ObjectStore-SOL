@@ -9,7 +9,7 @@
 
 #define STARTING_SIZE 100
 #define INC_SIZE 55
-#define CONTENT "HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloend!\n"
+#define CONTENT "ciao\n"
 
 #define OP_UPDATE_COUNTER(res, failed, success, total, msgSucc, msgFail) \
     total++;                                                             \
@@ -26,26 +26,43 @@ int success = 0;
 int failed = 0;
 
 void test1() {
-    char nameOfData[3];
-    int res;
-    long dataSize = 0;
-    for (int i = 0; i < 20; i++) {
-        dataSize = STARTING_SIZE + (i * INC_SIZE) + 1;
-        if (i == 0) dataSize = STARTING_SIZE + 1;
-        if (i == 19) dataSize = 100001;
+    /*     char nameOfData[3];
+        int res;
+        long dataSize = 0;
+        for (int i = 0; i < 20; i++) {
+            dataSize = (STARTING_SIZE * i * INC_SIZE) + 1;
+            if (i == 0) dataSize = STARTING_SIZE + 1;
+            if (i == 19) dataSize = 100001;
 
-        char* data = MALLOC(dataSize);
+            char* data = MALLOC(dataSize);
 
-        sprintf(nameOfData, "%d", i);
-        int cx = 0;
-        while (dataSize - cx > 0) {
-            cx += snprintf(data + cx, dataSize - cx, "%s", CONTENT);
-        }
-        CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
-        free(data);
-        data = NULL;
+            sprintf(nameOfData, "%d", i);
+            int cx = 0;
+            while (dataSize - cx > 0) {
+                cx += snprintf(data + cx, dataSize - cx, "%s", "hello");
+            }
+            CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
+            free(data);
+            data = NULL;
+            OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
+        } */
+    char data_name[3];
+    char* data = MALLOC(STARTING_SIZE);
+    int res, i = 0;
+    long current_size = 0;
+
+    for (i = 0; i < 20; i++) {
+        current_size = (i == 0) ? STARTING_SIZE : (i + 1) * INC_SIZE;
+        data = realloc(data, (sizeof(char) * (current_size + 1)));
+        sprintf(data_name, "%d", i);
+        int pos = 0;
+        while (current_size - pos > 0) pos += sprintf(data + pos, "%s", CONTENT);
+
+        CHECK(res, os_store(data_name, data, strlen(data)), "Error STORE");
         OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
     }
+
+    free(data);
 }
 
 void test2() {

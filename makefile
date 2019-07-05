@@ -68,6 +68,6 @@ cleanall	: clean cleandata
 	
 cleandata	: 
 	rm -R -f data /tmp/objStoreTmpFiles 
-test		: cleandata
-	@./objstore_server &> server.log
+test		: #cleandata
+	#@./objstore_server &> server.log
 	bash testsum.sh

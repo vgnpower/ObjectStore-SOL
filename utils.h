@@ -47,6 +47,11 @@
         fprintf(stderr, "%s\n", e); \
     }
 
+#define CHECK_NULL(r, c, e)         \
+    if ((r = c) == 0) {             \
+        fprintf(stderr, "%s\n", e); \
+    }
+
 #define CHECK_EXIT(r, c, e)         \
     if ((r = c) == 0) {             \
         fprintf(stderr, "%s\n", e); \
