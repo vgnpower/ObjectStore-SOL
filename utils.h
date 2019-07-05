@@ -103,6 +103,12 @@
 
 // https://stackoverflow.com/questions/20991229/how-to-freeing-pointers-using-macro-in-c
 
+/**
+ * @brief Wrapper for malloc function, handles the possible errors
+ *
+ * @param size
+ * @return char*
+ */
 static inline char *MALLOC(long size) {
     char *result = (char *)malloc(sizeof(char) * size);
     if (result == NULL) {
@@ -118,17 +124,103 @@ typedef struct objectStore {
 } t_objectStore;
 
 t_objectStore objStore;
+
+/**
+ * @brief variable that will store various internal error
+ *
+ */
 char *customError;
+
+/**
+ * @brief Compare 2 strings
+ *
+ * @param str
+ * @param cmpstr
+ * @return int 1 or 0. 1 if equal else 0
+ */
 int equal(char *str, char *cmpstr);
+
+/**
+ * @brief Compare only the charater of cmpstr with the matching of str
+ *
+ * @param str
+ * @param cmpstr
+ * @return int
+ */
 int equalN(char *str, char *cmpstr);
+
+/**
+ * @brief Get the Dir Path object
+ *
+ * @param username
+ * @param baseDir
+ * @return char*
+ */
 char *getDirPath(char *username, char *baseDir);
+
+/**
+ * @brief Get the File Path object
+ *
+ * @param fileName
+ * @param username
+ * @param baseDir
+ * @return char*
+ */
 char *getFilePath(char *fileName, char *username, char *baseDir);
+
+/**
+ * @brief Get the File Data of specified path
+ *
+ * @param fPath
+ * @return char*
+ */
 char *getFileData(char *fPath);
+
+/**
+ * @brief check if the last char is a dot
+ *
+ * @param dir
+ * @return int
+ */
 int isDot(const char dir[]);
+
+/**
+ * @brief Get the File Size of specified file
+ *
+ * @param file
+ * @return long
+ */
 long getFileSize(char *file);
+
+/**
+ * @brief Count all objects stored in the server data folder
+ *
+ * @param dirName
+ */
 void countObjects(char *dirName);
+
+/**
+ * @brief clear internal struct for counting purpose
+ *
+ */
 void clearObjectStruct();
+
+/**
+ * @brief Create the request layout for the server
+ *
+ * @param messageLength
+ * @param format
+ * @param ...
+ * @return char*
+ */
 char *createRequest(long messageLength, char *format, ...);
+
+/**
+ * @brief print current date and 1 other argument
+ *
+ * @param username
+ * @param message
+ */
 void printDateAndMore(char *username, char *message);
 
 #endif /* UTIL_H */
