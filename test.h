@@ -26,7 +26,7 @@ int success = 0;
 int failed = 0;
 
 void test1() {
-    char nameOfData[3];
+    char nameOfData[5];
     int res;
 
     for (int i = 0; i < 20; i++) {

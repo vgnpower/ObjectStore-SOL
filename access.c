@@ -89,22 +89,18 @@ void* os_retrieve(char* fileName) {
         char* fileData = savePtr;
         long lengthFirstRead = strlen(fileData);
         long fileLength = strtol(dataLength, NULL, 10);
-        long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
         char* data = MALLOC((fileLength + 1));
+
         int pointerLastWrite = snprintf(data, fileLength + 1, "%s", fileData);
 
-        while (packetsLeft > 0) {
+        while (fileLength - lengthFirstRead > 0) {
             memset(buffer, '\0', BUFFER_SIZE);
-
-            int result;
-            SYSCALL(result, read(sockfd, buffer, BUFFER_SIZE), "error on reading (os_retrive");
+            SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE), "error on reading (os_retrive");
             if (notused == -1) {
                 free(data);
                 return NULL;
             }
-            // TODO add controllo result
             pointerLastWrite += snprintf(data + pointerLastWrite, fileLength - pointerLastWrite, "%s", fileData);
-            packetsLeft--;
         }
 
         return data;

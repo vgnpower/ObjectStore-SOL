@@ -18,6 +18,7 @@
     if ((X) == val) {         \
         perror(#str);         \
     }
+
 #define CHECK_NOTEQ(X, val, str) \
     if ((X) != val) {            \
         perror(str);             \

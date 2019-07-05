@@ -1,4 +1,5 @@
 #!/bin/bash
+
 #const
 logFile='testout.log'
 clientName='objstore_client'
@@ -35,7 +36,6 @@ function checkLog(){
     targetT3=20
     clientTarget=100
     
-    nclient=0
     #Using grep to count specific keyword (-w used to match exact word)
     tst1=$(grep -cw "Test1 OK" $logFile)
     tst2=$(grep -cw "Test2 OK" $logFile)
