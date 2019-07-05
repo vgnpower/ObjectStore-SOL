@@ -19,7 +19,16 @@
 #define DATADIR "data"
 #define NBUCKETS 512
 
+/**
+ * @brief used to access to the hashtable. Mainly used to ensure username uniqueness
+ *
+ */
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/**
+ * @brief struct that store basic client info like fd=filedescriptor and it's username
+ *
+ */
 typedef struct client {
     char *username;
     long fd;
@@ -27,26 +36,39 @@ typedef struct client {
 
 icl_hash_t *userTables;
 
-int n_client = 0;
-int n_items = 0;
-long total_size = 0;
+// number of connected client
+int connectedClients = 0;
 
+// used to terminate the server
 static volatile sig_atomic_t sigInt = 0;
 
+/**
+ * @brief stop the server from accepting new connection by setting sigInt flag
+ *
+ * @param sig
+ */
 static void stopServer(int sig) {
     sigInt = 1;
     fprintf(stderr, "\n/!\\ THE SERVER IS SHUTTING DOWN /!\\\n");
 }
 
+/**
+ * @brief print server objects stats
+ *
+ */
 void printStats() {
     clearObjectStruct();
     countObjects("data");
     fprintf(stdout,
             "\n/------------Stats------------\\\n Connected cients: %d\n Total objects: %d\n Total size of objects: %ld "
             "MB\n\\-----------------------------/\n",
-            n_client, objStore.n_items, ((objStore.total_size / 1024) / 1024));
+            connectedClients, objStore.n_items, ((objStore.total_size / 1024) / 1024));
 }
 
+/**
+ * @brief Assign various Handler to specific function, and intercpeting specific signals (SIGUSR1, SIGINT, SIGPIPE)
+ *
+ */
 void sigManager() {
     struct sigaction exitHandler;
     struct sigaction statsHandler;
@@ -57,16 +79,24 @@ void sigManager() {
     memset(&statsHandler, 0, sizeof(statsHandler));
     memset(&pipeHandler, 0, sizeof(pipeHandler));
 
+    // Assign function to the handler
     exitHandler.sa_handler = stopServer;
     pipeHandler.sa_handler = SIG_IGN;
     statsHandler.sa_handler = printStats;
 
+    // set the sigaction
     int notused;
     SYSCALL(notused, sigaction(SIGUSR1, &statsHandler, NULL), "sigaction");
     SYSCALL(notused, sigaction(SIGINT, &exitHandler, NULL), "sigaction");
     SYSCALL(notused, sigaction(SIGPIPE, &pipeHandler, NULL), "sigaction");
 }
 
+/**
+ * @brief Initialize client struct with the filedescriptor fd
+ *
+ * @param fd
+ * @return client_t*
+ */
 client_t *initClient(long fd) {
     client_t *client = (client_t *)malloc(sizeof(client_t));
     IFNULL_EXIT(client, "Error on malloc client_t");
@@ -76,6 +106,13 @@ client_t *initClient(long fd) {
     return client;
 }
 
+/**
+ * @brief Add client struct to the hastable
+ *
+ * @param client
+ * @param username
+ * @return client_t*
+ */
 client_t *addClient(client_t *client, char *username) {
     printDateAndMore(username, "connected");
     pthread_mutex_lock(&mutex);
@@ -91,7 +128,7 @@ client_t *addClient(client_t *client, char *username) {
     icl_entry_t *ins_ret = icl_hash_insert(userTables, client->username, client);
 
     if (ins_ret != NULL) {
-        n_client++;
+        connectedClients++;
     } else {
         FREE_ALL(client->username);
         client->username = NULL;
@@ -102,12 +139,22 @@ client_t *addClient(client_t *client, char *username) {
     return client;
 }
 
+/**
+ * @brief Cleaning stored object into hashtable
+ *
+ * @param item
+ */
 void clean(void *item) {
     client_t *tmp = (client_t *)item;
     free(tmp->username);
     free(tmp);
 }
 
+/**
+ * @brief Remove specific client for the hashtable
+ *
+ * @param client
+ */
 void removeClient(client_t *client) {
     pthread_mutex_lock(&mutex);
 
@@ -123,11 +170,15 @@ void removeClient(client_t *client) {
     printDateAndMore(client->username, "disconnected");
 
     int success = icl_hash_delete(userTables, client->username, free, free);
-    if (success == 0) n_client--;
+    if (success == 0) connectedClients--;
 
     pthread_mutex_unlock(&mutex);
 }
 
+/**
+ * @brief Clear all the hashtable
+ *
+ */
 void freeHT() {
     pthread_mutex_lock(&mutex);
 
@@ -136,6 +187,13 @@ void freeHT() {
     pthread_mutex_unlock(&mutex);
 }
 
+/**
+ * @brief Send error Message to the client
+ *
+ * @param client
+ * @param error
+ * @return int
+ */
 int sendErrorMessage(client_t *client, char *error) {
     int eMsgLen = strlen("KO") + strlen(error) + 3;
     char *message = createRequest(eMsgLen, "%s %s \n", "KO", error);
@@ -146,12 +204,26 @@ int sendErrorMessage(client_t *client, char *error) {
     return (result != -1) ? 1 : 0;
 }
 
+/**
+ * @brief Send uscces message to the client
+ *
+ * @param client
+ * @return int
+ */
 int sendSucessMessage(client_t *client) {
     int result;
     SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "error sending response message");
     return (result != -1) ? 1 : 0;
 }
 
+/**
+ * @brief Handle the register request. Adding client to the hashtable and creating specific client dir to store data
+ *
+ * @param buf
+ * @param client
+ * @param savePtr
+ * @return client_t*
+ */
 client_t *reqRegister(char *buf, client_t *client, char *savePtr) {
     char *user = strtok_r(NULL, " ", &savePtr);
     if (strlen(user) > 254) {
@@ -180,6 +252,15 @@ client_t *reqRegister(char *buf, client_t *client, char *savePtr) {
     return client;
 }
 
+/**
+ * @brief Handle store request. If all goes good it store to a temp file and than move to the data folder the file data sent from
+ * client
+ *
+ * @param buf
+ * @param client
+ * @param savePtr
+ * @return client_t*
+ */
 client_t *reqStore(char *buf, client_t *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " ", &savePtr);
@@ -223,6 +304,14 @@ client_t *reqStore(char *buf, client_t *client, char *savePtr) {
     return client;
 }
 
+/**
+ * @brief Handle the retrive request. If all goes good it read and send to the client the specifed file data
+ *
+ * @param buf
+ * @param client
+ * @param savePtr
+ * @return client_t*
+ */
 client_t *reqRetrive(char *buf, client_t *client, char *savePtr) {
     // parse header
     char *fileName = strtok_r(NULL, " ", &savePtr);
@@ -252,6 +341,14 @@ client_t *reqRetrive(char *buf, client_t *client, char *savePtr) {
     return client;
 }
 
+/**
+ * @brief Handle delete request. If all goes good it remove specifed file from the data folder
+ *
+ * @param buf
+ * @param client
+ * @param savePtr
+ * @return client_t*
+ */
 client_t *reqDelete(char *buf, client_t *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileToDelete = getFilePath(fileName, client->username, DATADIR);
@@ -266,6 +363,13 @@ client_t *reqDelete(char *buf, client_t *client, char *savePtr) {
     return client;
 }
 
+/**
+ * @brief Read the command and route to it's specific function
+ *
+ * @param buf
+ * @param client
+ * @return client_t*
+ */
 client_t *manageRequest(char *buf, client_t *client) {
     char *savePtr;
     char *comand = strtok_r(buf, " ", &savePtr);
@@ -285,6 +389,12 @@ client_t *manageRequest(char *buf, client_t *client) {
     return NULL;
 }
 
+/**
+ * @brief Function associated to the thread that handle client requests
+ *
+ * @param arg
+ * @return void*
+ */
 void *threadClient(void *arg) {
     long connfd = (long)arg;
     client_t *client = initClient(connfd);
@@ -306,6 +416,11 @@ void *threadClient(void *arg) {
     return NULL;
 }
 
+/**
+ * @brief Spawn thread and perform the initialization required to work properly
+ *
+ * @param connfd
+ */
 void spawnThread(long connfd) {
     pthread_attr_t thattr;
     pthread_t thid;
