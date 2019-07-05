@@ -1,4 +1,0 @@
-BUG devo capire come fare la free del buffer se faccio crashare il server
-FEATURE gestione write bufferizzata per grandi dimensioni di file!
-BUG sigUSR1 se arriva il server dopo non fa più nulla
-TODO controlli lunghezza filename 

@@ -1,6 +1,6 @@
 #if !defined(TEST_H)
 #define TEST_H
-#define _POSIX_C_SOURCE 200112L  // per strtok_r
+#define _POSIX_C_SOURCE 200809L  // per strtok_r
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,63 +26,41 @@ int success = 0;
 int failed = 0;
 
 void test1() {
-    /*     char nameOfData[3];
-        int res;
-        long dataSize = 0;
-        for (int i = 0; i < 20; i++) {
-            dataSize = (STARTING_SIZE * i * INC_SIZE) + 1;
-            if (i == 0) dataSize = STARTING_SIZE + 1;
-            if (i == 19) dataSize = 100001;
-
-            char* data = MALLOC(dataSize);
-
-            sprintf(nameOfData, "%d", i);
-            int cx = 0;
-            while (dataSize - cx > 0) {
-                cx += snprintf(data + cx, dataSize - cx, "%s", "hello");
-            }
-            CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
-            free(data);
-            data = NULL;
-            OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
-        } */
     char nameOfData[3];
-    char* data;  // = MALLOC(STARTING_SIZE);
-    int res, i = 0;
-    long dataSize = 0;
+    int res;
 
-    for (i = 0; i < 20; i++) {
-        dataSize = (i == 0) ? STARTING_SIZE : (i + 1) * INC_SIZE;
+    for (int i = 0; i < 20; i++) {
+        long dataSize = (i == 0) ? STARTING_SIZE : (i + 1) * INC_SIZE;
 
         char* data = MALLOC(dataSize + 1);
-        // data = realloc(data, (sizeof(char) * (dataSize + 1)));
         sprintf(nameOfData, "%d", i);
-        int pos = 0;
-        while (dataSize - pos > 0) pos += sprintf(data + pos, "%s", CONTENT);
+        int size = 0;
+        while (dataSize - size > 0) size += sprintf(data + size, "%s", CONTENT);
 
         CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
+        CHECK_NOTEQ(customError, NULL, customError);
         OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
         free(data);
     }
 }
 
 void test2() {
-    char* nameOfData = "test2";
+    char* nameOfData = "t2";
     char* contentRetrieved;
     int res;
     CHECK(res, os_store(nameOfData, CONTENT, strlen(CONTENT)), "Error STORE");
     CHECK(contentRetrieved, (char*)os_retrieve(nameOfData), "Error Retrieve");
-    if (customError != NULL) fprintf(stdout, "CUSTOMERROR (test 2): [%s] \n", customError);
+    CHECK_NOTEQ(customError, NULL, customError);
     OP_UPDATE_COUNTER(equal(contentRetrieved, CONTENT), failed, success, total, "Test2 KO\n", "Test2 OK\n");
     free(contentRetrieved);
 }
 
 void test3() {
-    char* nameOfData = "test3";
+    char* nameOfData = "t3";
     int res;
     CHECK(res, os_store(nameOfData, CONTENT, strlen(CONTENT)), "Error STORE");
     CHECK(res, os_delete(nameOfData), "Error DELETE");
-    if (customError != NULL) fprintf(stdout, "CUSTOMERROR Test3: [%s] \n", customError);
+    CHECK_NOTEQ(customError, NULL, customError);
     OP_UPDATE_COUNTER(res, failed, success, total, "Test3 KO\n", "Test3 OK\n");
 }
 #endif

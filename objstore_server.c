@@ -1,5 +1,4 @@
-#define _POSIX_C_SOURCE 200112L
-//#define _POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <ftw.h>
 #include <locale.h>
@@ -24,7 +23,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct client {
     char *username;
     long fd;
-} t_client;
+} client_t;
 
 icl_hash_t *userTables;
 
@@ -59,7 +58,7 @@ void sigManager() {
     memset(&pipeHandler, 0, sizeof(pipeHandler));
 
     exitHandler.sa_handler = stopServer;
-    // pipeHandler.sa_handler = SIG_IGN;
+    pipeHandler.sa_handler = SIG_IGN;
     statsHandler.sa_handler = printStats;
 
     int notused;
@@ -68,16 +67,16 @@ void sigManager() {
     SYSCALL(notused, sigaction(SIGPIPE, &pipeHandler, NULL), "sigaction");
 }
 
-t_client *initClient(long fd) {
-    t_client *client = (t_client *)malloc(sizeof(t_client));
-    IFNULL_EXIT(client, "Error on malloc t_client");
+client_t *initClient(long fd) {
+    client_t *client = (client_t *)malloc(sizeof(client_t));
+    IFNULL_EXIT(client, "Error on malloc client_t");
     client->username = NULL;
     client->fd = fd;
 
     return client;
 }
 
-t_client *addClient(t_client *client, char *username) {
+client_t *addClient(client_t *client, char *username) {
     printDateAndMore(username, "connected");
     pthread_mutex_lock(&mutex);
 
@@ -104,12 +103,12 @@ t_client *addClient(t_client *client, char *username) {
 }
 
 void clean(void *item) {
-    t_client *tmp = (t_client *)item;
+    client_t *tmp = (client_t *)item;
     free(tmp->username);
     free(tmp);
 }
 
-void removeClient(t_client *client) {
+void removeClient(client_t *client) {
     pthread_mutex_lock(&mutex);
 
     if (client == NULL) {
@@ -137,7 +136,7 @@ void freeHT() {
     pthread_mutex_unlock(&mutex);
 }
 
-int sendErrorMessage(t_client *client, char *error) {
+int sendErrorMessage(client_t *client, char *error) {
     int eMsgLen = strlen("KO") + strlen(error) + 3;
     char *message = createRequest(eMsgLen, "%s %s \n", "KO", error);
     int result;
@@ -147,13 +146,13 @@ int sendErrorMessage(t_client *client, char *error) {
     return (result != -1) ? 1 : 0;
 }
 
-int sendSucessMessage(t_client *client) {
+int sendSucessMessage(client_t *client) {
     int result;
     SYSCALL(result, write(client->fd, "OK \n", 5 * sizeof(char)), "error sending response message");
     return (result != -1) ? 1 : 0;
 }
 
-t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
+client_t *reqRegister(char *buf, client_t *client, char *savePtr) {
     char *user = strtok_r(NULL, " ", &savePtr);
     if (strlen(user) > 254) {
         sendErrorMessage(client, "Username too long. It should be less than 255");
@@ -181,7 +180,7 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
     return client;
 }
 
-t_client *reqStore(char *buf, t_client *client, char *savePtr) {
+client_t *reqStore(char *buf, client_t *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " ", &savePtr);
     savePtr += 2;  // skip te next 2 char (the \n and space)
@@ -202,7 +201,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
         return client;
     }
 
-    int result;
+    int result = 0;
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
     while (fileLength - lengthFirstRead > 0) {
         memset(buf, '\0', BUFFER_SIZE);
@@ -224,7 +223,7 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
     return client;
 }
 
-t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
+client_t *reqRetrive(char *buf, client_t *client, char *savePtr) {
     // parse header
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileToRetrive = getFilePath(fileName, client->username, DATADIR);
@@ -253,7 +252,7 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
     return client;
 }
 
-t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
+client_t *reqDelete(char *buf, client_t *client, char *savePtr) {
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileToDelete = getFilePath(fileName, client->username, DATADIR);
 
@@ -267,11 +266,10 @@ t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
     return client;
 }
 
-t_client *manageRequest(char *buf, t_client *client) {
+client_t *manageRequest(char *buf, client_t *client) {
     char *savePtr;
     char *comand = strtok_r(buf, " ", &savePtr);
 
-    int result;
     if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
     if (equal(comand, "STORE")) return reqStore(buf, client, savePtr);
     if (equal(comand, "RETRIEVE")) return reqRetrive(buf, client, savePtr);
@@ -289,7 +287,7 @@ t_client *manageRequest(char *buf, t_client *client) {
 
 void *threadClient(void *arg) {
     long connfd = (long)arg;
-    t_client *client = initClient(connfd);
+    client_t *client = initClient(connfd);
     char *buffer = MALLOC(BUFFER_SIZE);
 
     do {

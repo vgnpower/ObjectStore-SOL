@@ -1,6 +1,6 @@
 #if !defined(UTILS_H)
 #define UTILS_H
-#define _POSIX_C_SOURCE 200112L
+#define _POSIX_C_SOURCE 200809L
 #include <dirent.h>
 #include <errno.h>
 #include <signal.h>
@@ -18,6 +18,11 @@
     if ((X) == val) {         \
         perror(#str);         \
     }
+#define CHECK_NOTEQ(X, val, str) \
+    if ((X) != val) {            \
+        perror(str);             \
+        str = NULL;              \
+    }
 
 #define SYSCALL(r, c, e) \
     if ((r = c) == -1) { \
@@ -34,6 +39,7 @@
     if ((c) < 1) {          \
         break;              \
     }
+
 #define SYSCALL_RETURN(c, e, secondOp) \
     if ((c) != 0) {                    \
         perror(e);                     \
@@ -124,37 +130,5 @@ void countObjects(char *dirName);
 void clearObjectStruct();
 char *createRequest(long messageLength, char *format, ...);
 void printDateAndMore(char *username, char *message);
-
-static inline int readn(long fd, void *buf, size_t size) {
-    size_t left = size;
-    int r;
-    char *bufptr = (char *)buf;
-    while (left > 0) {
-        if ((r = read((int)fd, bufptr, left)) == -1) {
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        if (r == 0) return 0;  // gestione chiusura socket
-        left -= r;
-        bufptr += r;
-    }
-    return size;
-}
-
-static inline int writen(long fd, void *buf, size_t size) {
-    size_t left = size;
-    int r;
-    char *bufptr = (char *)buf;
-    while (left > 0) {
-        if ((r = write((int)fd, bufptr, left)) == -1) {
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        if (r == 0) return 0;
-        left -= r;
-        bufptr += r;
-    }
-    return 1;
-}
 
 #endif /* UTIL_H */
