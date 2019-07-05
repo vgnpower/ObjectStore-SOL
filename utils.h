@@ -32,7 +32,6 @@
 
 #define SYSCALL_BREAK(c, e) \
     if ((c) < 1) {          \
-        perror(e);          \
         break;              \
     }
 #define SYSCALL_RETURN(c, e, secondOp) \

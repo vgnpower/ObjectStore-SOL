@@ -10,6 +10,6 @@
 
 #define SOCKNAME "./objstore.sock"
 #define MAXBACKLOG 32
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 2048
 
 #endif /* CONNECTION_H */

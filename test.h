@@ -8,7 +8,7 @@
 #include "utils.h"
 
 #define STARTING_SIZE 100
-#define INC_SIZE 55
+#define INC_SIZE 5000
 #define CONTENT "ciao\n"
 
 #define OP_UPDATE_COUNTER(res, failed, success, total, msgSucc, msgFail) \
@@ -46,23 +46,24 @@ void test1() {
             data = NULL;
             OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
         } */
-    char data_name[3];
-    char* data = MALLOC(STARTING_SIZE);
+    char nameOfData[3];
+    char* data;  // = MALLOC(STARTING_SIZE);
     int res, i = 0;
-    long current_size = 0;
+    long dataSize = 0;
 
     for (i = 0; i < 20; i++) {
-        current_size = (i == 0) ? STARTING_SIZE : (i + 1) * INC_SIZE;
-        data = realloc(data, (sizeof(char) * (current_size + 1)));
-        sprintf(data_name, "%d", i);
+        dataSize = (i == 0) ? STARTING_SIZE : (i + 1) * INC_SIZE;
+
+        char* data = MALLOC(dataSize + 1);
+        // data = realloc(data, (sizeof(char) * (dataSize + 1)));
+        sprintf(nameOfData, "%d", i);
         int pos = 0;
-        while (current_size - pos > 0) pos += sprintf(data + pos, "%s", CONTENT);
+        while (dataSize - pos > 0) pos += sprintf(data + pos, "%s", CONTENT);
 
-        CHECK(res, os_store(data_name, data, strlen(data)), "Error STORE");
+        CHECK(res, os_store(nameOfData, data, strlen(data)), "Error STORE");
         OP_UPDATE_COUNTER(res, failed, success, total, "Test1 KO\n", "Test1 OK\n");
+        free(data);
     }
-
-    free(data);
 }
 
 void test2() {
@@ -70,9 +71,8 @@ void test2() {
     char* contentRetrieved;
     int res;
     CHECK(res, os_store(nameOfData, CONTENT, strlen(CONTENT)), "Error STORE");
-    if (customError != NULL) fprintf(stdout, "\n CUSTOMERROR (Test 2 after store): [%s] \n", customError);
     CHECK(contentRetrieved, (char*)os_retrieve(nameOfData), "Error Retrieve");
-    if (customError != NULL) fprintf(stdout, "\n CUSTOMERROR (test 2 after retrive): [%s] \n", customError);
+    if (customError != NULL) fprintf(stdout, "CUSTOMERROR (test 2): [%s] \n", customError);
     OP_UPDATE_COUNTER(equal(contentRetrieved, CONTENT), failed, success, total, "Test2 KO\n", "Test2 OK\n");
     free(contentRetrieved);
 }
@@ -81,9 +81,8 @@ void test3() {
     char* nameOfData = "test3";
     int res;
     CHECK(res, os_store(nameOfData, CONTENT, strlen(CONTENT)), "Error STORE");
-    if (customError != NULL) fprintf(stdout, "\n CUSTOMERROR Test3 after store: [%s] \n", customError);
     CHECK(res, os_delete(nameOfData), "Error DELETE");
-    if (customError != NULL) fprintf(stdout, "\n CUSTOMERROR Test3 after delete: [%s] \n", customError);
+    if (customError != NULL) fprintf(stdout, "CUSTOMERROR Test3: [%s] \n", customError);
     OP_UPDATE_COUNTER(res, failed, success, total, "Test3 KO\n", "Test3 OK\n");
 }
 #endif

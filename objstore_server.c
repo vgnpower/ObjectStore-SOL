@@ -37,12 +37,6 @@ static volatile sig_atomic_t sigInt = 0;
 static void stopServer(int sig) {
     sigInt = 1;
     fprintf(stderr, "\n/!\\ THE SERVER IS SHUTTING DOWN /!\\\n");
-    FILE *fp;
-    CHECK_EQ(fp = fopen("a.out", "w"), NULL, EOPEN);
-
-    if (fp != NULL) icl_hash_dump(fp, userTables);
-
-    fclose(fp);
 }
 
 void printStats() {
@@ -130,12 +124,7 @@ void removeClient(t_client *client) {
     printDateAndMore(client->username, "disconnected");
 
     int success = icl_hash_delete(userTables, client->username, free, free);
-    if (success == 0) {
-        n_client--;
-        // FREE_ALL(client /*, key*/);
-    } else {
-        // free(key);
-    }
+    if (success == 0) n_client--;
 
     pthread_mutex_unlock(&mutex);
 }
@@ -193,33 +182,6 @@ t_client *reqRegister(char *buf, t_client *client, char *savePtr) {
 }
 
 t_client *reqStore(char *buf, t_client *client, char *savePtr) {
-    /*     char *fileName = strtok_r(NULL, " ", &savePtr);
-        char *fileLen = strtok_r(NULL, " ", &savePtr);
-        savePtr += 2;  // skip te next 2 char (the \n and space)
-        char *fileData = savePtr;
-        char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
-        char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
-        long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
-        long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
-        long fileLength = strtol(fileLen, NULL, 10);
-
-        FILE *fp;
-        CHECK_EQ(fp = fopen(tmpFileToWrite, "w"), NULL, EOPEN);
-        if (fp == NULL) {
-            sendErrorMessage(client, EOPEN);
-            FREE_ALL(tmpFileToWrite, fileToWrite);
-            return client;
-        }
-
-        long packetsLeft = (long)ceil((double)(fileLength - lengthFirstRead) / BUFFER_SIZE);
-        fwrite(fileData, sizeof(char), lengthFirstRead, fp);
-        while (packetsLeft > 0) {
-            memset(buf, '\0', BUFFER_SIZE);
-            SYSCALL_BREAK(read(client->fd, buf, BUFFER_SIZE), "error on read");
-            fwrite(buf, sizeof(char), (packetsLeft > 1) ? BUFFER_SIZE : strlen(buf), fp);
-            packetsLeft--;
-        }
-        fclose(fp); */
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileLen = strtok_r(NULL, " ", &savePtr);
     savePtr += 2;  // skip te next 2 char (the \n and space)
@@ -232,34 +194,38 @@ t_client *reqStore(char *buf, t_client *client, char *savePtr) {
 
     FILE *fp;
 
-    // writing on file
+    // Open tmp file to write data
     if ((fp = fopen(tmpFileToWrite, "w")) == NULL) {
         fclose(fp);
         sendErrorMessage(client, "error on fopen");
-        free(tmpFileToWrite);
+        FREE_ALL(tmpFileToWrite, fileToWrite);
         return client;
     }
+
     int result;
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
     while (fileLength - lengthFirstRead > 0) {
         memset(buf, '\0', BUFFER_SIZE);
         SYSCALL(result, read(client->fd, buf, BUFFER_SIZE), "error on read");
-        int n = fwrite(buf, sizeof(char), strnlen(buf, BUFFER_SIZE), fp);
-        fileLength -= (long)n;
+        long byteRead = (long)fwrite(buf, sizeof(char), strnlen(buf, BUFFER_SIZE), fp);
+        fileLength -= byteRead;
     }
     fclose(fp);
+
     if (result != -1) {
         SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
         sendSucessMessage(client);
     } else {
         sendErrorMessage(client, "Error on write or reading store file");
     }
+
     FREE_ALL(tmpFileToWrite, fileToWrite);
 
     return client;
 }
 
 t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
+    // parse header
     char *fileName = strtok_r(NULL, " ", &savePtr);
     char *fileToRetrive = getFilePath(fileName, client->username, DATADIR);
     char *data = getFileData(fileToRetrive);
@@ -269,12 +235,13 @@ t_client *reqRetrive(char *buf, t_client *client, char *savePtr) {
         return client;
     }
 
+    // handle the init & creation of dataLength part
     long dataLength = strlen(data);
-    int nCharDtLngth = log10(dataLength) + 1;          // Numero di char che servono per scrivere lenData
-    char *dataLenAsString = MALLOC(nCharDtLngth + 1);  // stringa per contenere lenData
+    int nCharDtLngth = log10(dataLength) + 1;
+    char *dataLenAsString = MALLOC(nCharDtLngth + 1);
     snprintf(dataLenAsString, nCharDtLngth + 1, "%ld", dataLength);
 
-    long responseLength = strlen("DATA") + strlen(dataLenAsString) + strlen(data) + 4 + 1;
+    long responseLength = strlen("DATA") + strlen(dataLenAsString) + strlen(data) + 5;
     char *response = MALLOC(responseLength);
     snprintf(response, responseLength, "DATA %s \n %s", dataLenAsString, data);
 
@@ -303,7 +270,7 @@ t_client *reqDelete(char *buf, t_client *client, char *savePtr) {
 t_client *manageRequest(char *buf, t_client *client) {
     char *savePtr;
     char *comand = strtok_r(buf, " ", &savePtr);
-    fprintf(stderr, "[%s]\n", buf);
+
     int result;
     if (client->username == NULL && equal(comand, "REGISTER")) return reqRegister(buf, client, savePtr);
     if (equal(comand, "STORE")) return reqStore(buf, client, savePtr);
@@ -330,14 +297,12 @@ void *threadClient(void *arg) {
         if (sigInt == 1) break;
         SYSCALL_BREAK(read(client->fd, buffer, BUFFER_SIZE), "Error reading (thClient)");
         client = manageRequest(buffer, client);
-        if (client != NULL && client->fd == 0) break;
-
+        if (client != NULL && client->fd < 1) break;
     } while (client != NULL);
 
     free(buffer);
     removeClient(client);
     close(connfd);
-    // shutdown(connfd, SHUT_RDWR);
     pthread_exit("Thread closed");
 
     return NULL;
@@ -347,10 +312,10 @@ void spawnThread(long connfd) {
     pthread_attr_t thattr;
     pthread_t thid;
 
-    TH_ERR_CLOSE(pthread_attr_init(&thattr), connfd, "pthread_attr_init FALLITA\n");
+    TH_ERR_CLOSE(pthread_attr_init(&thattr), connfd, "pthread_attr_init FAILED\n");
     TH_CLOSE_ATTR(pthread_attr_setdetachstate(&thattr, PTHREAD_CREATE_DETACHED), connfd, &thattr,
-                  "pthread_attr_setdetachstate FALLITA\n");
-    TH_CLOSE_ATTR(pthread_create(&thid, &thattr, threadClient, (void *)connfd), connfd, &thattr, "pthread_create FALLITA\n");
+                  "pthread_attr_setdetachstate FAILED\n");
+    TH_CLOSE_ATTR(pthread_create(&thid, &thattr, threadClient, (void *)connfd), connfd, &thattr, "pthread_create FAILED\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -384,7 +349,6 @@ int main(int argc, char *argv[]) {
     while (sigInt != 1) {
         if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1 && errno == EINTR) {
         }
-        if (sigInt == 1) break;
         spawnThread(connfd);
     }
     freeHT();
