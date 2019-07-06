@@ -1,7 +1,6 @@
-#if !defined(ACCESS_H_)
-#define ACCESS_H_
+#if !defined(LIB_CLIENT_H_)
+#define LIB_CLIENT_H_
 #define _POSIX_C_SOURCE 200809L
-#include <access.h>
 #include <ctype.h>
 #include <locale.h>
 #include <math.h>
@@ -38,7 +37,7 @@ int os_store(char *name, void *block, size_t len);
 /**
  * @brief Retrive from server (if exists) the content of specified filename
  *
- * @param name
+ * @param name filename
  * @return void*
  */
 void *os_retrieve(char *name);
@@ -58,4 +57,4 @@ int os_delete(char *name);
  */
 int os_disconnect();
 
-#endif /* LIBOBJSTORE_ACCESS_H_ */
+#endif

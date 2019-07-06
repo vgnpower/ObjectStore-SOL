@@ -105,9 +105,9 @@ void clearObjectStruct() {
 
 char *createRequest(long messageLength, char *format, ...) {
     char *formatAlloc = MALLOC(strlen(format) + 1);
-
     strcpy(formatAlloc, format);
 
+    // counting the number of param
     char *save;
     char *token = strtok_r(formatAlloc, "%s", &save);
 
@@ -116,9 +116,9 @@ char *createRequest(long messageLength, char *format, ...) {
     while ((current = strtok_r(NULL, "%s", &save)) != NULL) nOfParam++;
 
     free(formatAlloc);
-
     if (nOfParam < 1) return NULL;
 
+    // preparing the memory to store the message to send using variable parameters
     char *message = MALLOC(messageLength);
 
     va_list argptr;

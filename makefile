@@ -52,10 +52,10 @@ all		: $(TARGETS)
 libUtils.a: utils.o utils.h
 	$(AR) $(ARFLAGS) $@ $<
 
-libAccess.a: access.o access.h libUtils.a
+libClient.a: lib_client.o lib_client.h libUtils.a
 	$(AR) $(ARFLAGS) $@ $<
 
-objstore_client: objstore_client.o libAccess.a  libUtils.a
+objstore_client: objstore_client.o libClient.a  libUtils.a
 	$(CC) $(CFLAGS) $(INCLUDES) $(OPTFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 objstore_server: objstore_server.o icl_hash.o libUtils.a
@@ -70,4 +70,4 @@ cleandata	:
 	rm -R -f data /tmp/objStoreTmpFiles 
 test		: cleandata
 	@./objstore_server &
-	bash testsum.sh
+	@./testsum.sh

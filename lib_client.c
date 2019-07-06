@@ -1,26 +1,28 @@
-#include "access.h"
+#include "lib_client.h"
 
 static struct sockaddr_un serv_addr;
 static int sockfd;
 
 char buffer[BUFFER_SIZE];
 
-int os_connect(char* username) {
+int os_connect(char* name) {
+    // init the socket
     SYSCALL(sockfd, socket(AF_UNIX, SOCK_STREAM, 0), "socket");
     serv_addr.sun_family = AF_UNIX;
     strncpy(serv_addr.sun_path, SOCKNAME, strlen(SOCKNAME) + 1);
 
-    int notused;
+    int notused;  // connect to the socket
     SYSCALL_RETURN(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)), "connect", close(sockfd));
     // Create req
-    int lenMex = sizeof(char) * (strlen(username) + strlen("REGISTER") + 4);
-    char* message = createRequest(lenMex, "%s %s \n", "REGISTER", username);
+    int lenMex = sizeof(char) * (strlen(name) + strlen("REGISTER") + 4);
+    char* message = createRequest(lenMex, "%s %s \n", "REGISTER", name);
 
     // Send request
     SYSCALL(notused, write(sockfd, message, lenMex), "write (os_connect)");
     free(message);
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_connect)");
 
+    // read the response
     if (equalN(buffer, "OK")) return 1;
     if (equalN(buffer, "KO")) {
         char* savePtr;
@@ -34,13 +36,13 @@ int os_connect(char* username) {
     return 0;
 }
 
-int os_store(char* fileName, void* block, size_t dtLength) {
-    long dataLength = (long)dtLength;
-    int nCharDtLngth = log10(dataLength) + 1;
+int os_store(char* name, void* block, size_t len) {
+    long dataLength = (long)len;
+    int nCharDtLngth = log10(dataLength) + 1;  // used to prepare the string
     char* dataLenAsString = MALLOC((nCharDtLngth + 1));
-    sprintf(dataLenAsString, "%ld", dataLength);
-    long messageLength = sizeof(char) * (strlen("STORE") + dataLength + strlen(fileName) + strlen(dataLenAsString) + 6);
-    char* message = createRequest(messageLength, "%s %s %s \n %s", "STORE", fileName, dataLenAsString, (char*)block);
+    sprintf(dataLenAsString, "%ld", dataLength);  // creating the string with the size of block
+    long messageLength = sizeof(char) * (strlen("STORE") + dataLength + strlen(name) + strlen(dataLenAsString) + 6);
+    char* message = createRequest(messageLength, "%s %s %s \n %s", "STORE", name, dataLenAsString, (char*)block);
     free(dataLenAsString);
 
     // Send Req
@@ -49,6 +51,7 @@ int os_store(char* fileName, void* block, size_t dtLength) {
     free(message);
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_store)");
 
+    // read the response
     if (equalN(buffer, "KO")) {
         char* savePtr;
         strtok_r(buffer, " ", &savePtr);
@@ -61,21 +64,21 @@ int os_store(char* fileName, void* block, size_t dtLength) {
     return (equalN(buffer, "OK")) ? 1 : 0;
 }
 
-void* os_retrieve(char* fileName) {
-    long messageLength = sizeof(char) * (strlen("RETRIEVE") + strlen(fileName) + 4);
-    char* message = createRequest(messageLength, "%s %s \n", "RETRIEVE", fileName);
+void* os_retrieve(char* name) {
+    long messageLength = sizeof(char) * (strlen("RETRIEVE") + strlen(name) + 4);
+    char* message = createRequest(messageLength, "%s %s \n", "RETRIEVE", name);
 
     // Send request
     int notused;
     SYSCALL(notused, write(sockfd, message, messageLength * sizeof(char)), "write (os_retrive)");
     free(message);
 
-    // Waiting response
+    // Wait response
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read (os_retrive)");
     char* savePtr;
     char* command = strtok_r(buffer, " ", &savePtr);
 
-    // Error handling
+    // read the error response
     if (equal(command, "KO")) {
         char* errMsg = strtok_r(NULL, "\n", &savePtr);
         customError = errMsg;
@@ -92,7 +95,7 @@ void* os_retrieve(char* fileName) {
         char* data = MALLOC((fileLength + 1));
 
         int pointerLastWrite = snprintf(data, fileLength + 1, "%s", fileData);
-
+        // loop until read all bytes
         while (fileLength - lengthFirstRead > 0) {
             memset(buffer, '\0', BUFFER_SIZE);
             SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE), "error on reading (os_retrive");
@@ -101,6 +104,7 @@ void* os_retrieve(char* fileName) {
                 return NULL;
             }
             pointerLastWrite += snprintf(data + pointerLastWrite, fileLength - pointerLastWrite, "%s", fileData);
+            lengthFirstRead = pointerLastWrite;  // used to exict the loop if all bytes are read
         }
 
         return data;
@@ -109,9 +113,9 @@ void* os_retrieve(char* fileName) {
     return NULL;
 }
 
-int os_delete(char* fileName) {
-    long messageLength = sizeof(char) * (strlen("DELETE") + strlen(fileName) + 4);
-    char* message = createRequest(messageLength, "%s %s \n", "DELETE", fileName);
+int os_delete(char* name) {
+    long messageLength = sizeof(char) * (strlen("DELETE") + strlen(name) + 4);  // 3 space + 1 termination char
+    char* message = createRequest(messageLength, "%s %s \n", "DELETE", name);
 
     // send request
     int notused;
@@ -119,6 +123,7 @@ int os_delete(char* fileName) {
     free(message);
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
 
+    // read response
     char* savePtr;
     char* command = strtok_r(buffer, " ", &savePtr);
 
@@ -132,7 +137,7 @@ int os_delete(char* fileName) {
 }
 
 int os_disconnect() {
-    long messageLength = sizeof(char) * (strlen("LEAVE") + 3);
+    long messageLength = sizeof(char) * (strlen("LEAVE") + 3);  // 1 space 1 \n and 1 termination
     char* message = createRequest(messageLength, "%s \n", "LEAVE");
 
     // send request
@@ -141,6 +146,7 @@ int os_disconnect() {
     free(message);
     SYSCALL(notused, read(sockfd, buffer, BUFFER_SIZE * sizeof(char)), "read");
 
+    // read response
     if (equalN(buffer, "OK")) {
         close(sockfd);
         return 1;

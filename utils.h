@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#define EOPEN "Errore apertura file"
+#define EOPEN "Error open file"
 #define MAXNAMELEN 32
 
 #define CHECK_EQ(X, val, str) \
@@ -224,4 +224,4 @@ char *createRequest(long messageLength, char *format, ...);
  */
 void printDateAndMore(char *username, char *message);
 
-#endif /* UTIL_H */
+#endif

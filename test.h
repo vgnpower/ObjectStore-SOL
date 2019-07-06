@@ -1,10 +1,10 @@
 #if !defined(TEST_H)
 #define TEST_H
-#define _POSIX_C_SOURCE 200809L  // per strtok_r
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "access.h"
+#include "lib_client.h"
 #include "utils.h"
 
 #define STARTING_SIZE 100

@@ -268,7 +268,7 @@ client_t *reqStore(char *buf, client_t *client, char *savePtr) {
     char *fileData = savePtr;
     char *tmpFileToWrite = getFilePath(client->username, "", TMPDIR);
     char *fileToWrite = getFilePath(fileName, client->username, DATADIR);
-    long fileLength = strtol(fileLen, NULL, 10);
+    long fileLength = strtol(fileLen, NULL, 10);  // convert string number to long
     long lengthHeader = strlen("STORE") + strlen(fileName) + strlen(fileLen) + 5;
     long lengthFirstRead = strnlen(fileData, BUFFER_SIZE - lengthHeader);
 
@@ -284,6 +284,7 @@ client_t *reqStore(char *buf, client_t *client, char *savePtr) {
 
     int result = 0;
     fwrite(fileData, sizeof(char), lengthFirstRead, fp);
+    // loop until finished the read of all data
     while (fileLength - lengthFirstRead > 0) {
         memset(buf, '\0', BUFFER_SIZE);
         SYSCALL(result, read(client->fd, buf, BUFFER_SIZE), "error on read");
@@ -292,7 +293,7 @@ client_t *reqStore(char *buf, client_t *client, char *savePtr) {
     }
     fclose(fp);
 
-    if (result != -1) {
+    if (result != -1) {  // move the tmpfile to data
         SYSCALL(result, rename(tmpFileToWrite, fileToWrite), "error on renaming");
         sendSucessMessage(client);
     } else {
@@ -386,7 +387,7 @@ client_t *manageRequest(char *buf, client_t *client) {
 
     sendErrorMessage(client, "Error undefined. Maybe wrong request? Try again.");
 
-    return NULL;
+    return client;
 }
 
 /**
