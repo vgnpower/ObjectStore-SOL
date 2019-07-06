@@ -15,7 +15,7 @@
 #include "icl_hash.h"
 #include "utils.h"
 
-#define TMPDIR "/tmp/objStoreTmpFiles"
+#define TMPDIR ".tmp"
 #define DATADIR "data"
 #define NBUCKETS 512
 
